@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redline"
-version = "0.1.1"
+version = "0.2.0"
 description = "CLI-first evaluator for AI-agent red-team scenarios"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,8 +13,8 @@ dependencies = []
 [project.scripts]
 redline = "redline.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["redline"]
 
 [tool.setuptools.package-data]
 redline = ["*.json"]

@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -11,28 +12,41 @@ def append_record(path, record) -> None:
     path = Path(path)
     data = (json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+b") as fh:
-        if fh.tell():
+    if path.exists() and path.stat().st_size:
+        with path.open("rb") as fh:
             fh.seek(-1, 2)
             if fh.read(1) != b"\n":
                 raise ValueError(f"{path}: incomplete final ledger line; repair before appending")
+            fh.seek(0)
+            last = None
+            for line in fh:
+                if line.strip():
+                    last = line
+        try:
+            json.loads(last)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(f"{path}: incomplete final record; repair before appending") from exc
+    with path.open("ab") as fh:
         fh.write(data)
 
 
 def read_records(path):
     path = Path(path)
-    if path.exists():
-        with path.open(encoding="utf-8") as fh:
-            for number, line in enumerate(fh, 1):
-                if not line.strip():
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"{path}:{number}: invalid ledger JSON") from exc
-                if not isinstance(record, dict):
-                    raise ValueError(f"{path}:{number}: ledger entry must be an object")
-                yield record
+    if not path.exists():
+        return
+    with path.open(encoding="utf-8") as fh:
+        for number, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                print(f"redline: {path}:{number}: invalid ledger JSON; stopping", file=sys.stderr)
+                return
+            if not isinstance(record, dict):
+                print(f"redline: {path}:{number}: ledger entry is not an object; stopping", file=sys.stderr)
+                return
+            yield record
 
 
 def to_markdown(record) -> str:

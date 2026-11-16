@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__
 from .catalog import get_technique
-from .models import MOCK_TARGET, TargetAdapter
+from .models import AgentResponse, MOCK_TARGET, TargetAdapter
 from .report import append_record
 from .validators import VALIDATORS, run_validators
 
@@ -41,8 +41,12 @@ class Scenario:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a nonempty string")
         get_technique(self.technique_id)
-        if self.adapter != "mock" or self.target != MOCK_TARGET:
-            raise ValueError(f"only mock at {MOCK_TARGET} is supported")
+        if self.adapter not in {"mock", "trace"}:
+            raise ValueError("adapter must be mock or trace")
+        if self.adapter == "mock" and self.target != MOCK_TARGET:
+            raise ValueError(f"mock adapter only supports {MOCK_TARGET}")
+        if self.baseline_prompt == self.attack_prompt:
+            raise ValueError("baseline and attack prompts must differ")
         if (not isinstance(self.validators, list) or not self.validators
                 or any(not isinstance(v, str) or v not in VALIDATORS for v in self.validators)
                 or len(set(self.validators)) != len(self.validators)):
@@ -100,6 +104,12 @@ def load_scenario(path=None) -> Scenario:
     return scenario
 
 
+def _send(adapter: TargetAdapter, prompt: str, scope: Scope, number: int) -> AgentResponse:
+    if number > scope.max_requests:
+        raise ValueError(f"request budget exceeded: {number} > {scope.max_requests}")
+    return adapter.send(prompt)
+
+
 def run_scenario(scenario: Scenario, adapter: TargetAdapter, scope: Scope, *,
                  mode="vulnerable", ledger_path=None) -> RunResult:
     scenario.validate()
@@ -111,19 +121,19 @@ def run_scenario(scenario: Scenario, adapter: TargetAdapter, scope: Scope, *,
         raise ValueError("this run requires a budget of at least two requests")
     initial = deepcopy(adapter.snapshot())
     initial_marker = adapter.platform_marker()
-    baseline = adapter.send(scenario.baseline_prompt)
+    baseline = _send(adapter, scenario.baseline_prompt, scope, 1)
     before = deepcopy(adapter.snapshot())
     marker_before = adapter.platform_marker()
     baseline_checks = run_validators(scenario, attack=baseline, state_before=initial,
                                     state_after=before, marker_before=initial_marker, marker=marker_before)
-    attack = adapter.send(scenario.attack_prompt)
+    attack = _send(adapter, scenario.attack_prompt, scope, 2)
     after = deepcopy(adapter.snapshot())
     marker = adapter.platform_marker()
     checks = run_validators(scenario, attack=attack, state_before=before, state_after=after,
                             marker_before=marker_before, marker=marker)
-    status = "Confirmed" if any(v.outcome == "Confirmed" for v in checks) else "No breach observed"
-    if any(v.outcome == "Confirmed" for v in baseline_checks):
-        status = "Inconclusive"
+    confirmed = [v.name for v in checks if v.outcome == "Confirmed"]
+    baseline_confirmed = [v.name for v in baseline_checks if v.outcome == "Confirmed"]
+    status = "Inconclusive" if baseline_confirmed else ("Confirmed" if confirmed else "No breach observed")
     result = RunResult(
         run_id=uuid.uuid4().hex, scenario_id=scenario.id, technique_id=scenario.technique_id,
         target=scenario.target, mode=mode, status=status,
@@ -134,7 +144,8 @@ def run_scenario(scenario: Scenario, adapter: TargetAdapter, scope: Scope, *,
         evidence={"recorded_at": datetime.now(timezone.utc).isoformat(), "tool_version": __version__,
                   "scenario_sha256": hashlib.sha256(
                       json.dumps(asdict(scenario), sort_keys=True, allow_nan=False).encode()).hexdigest(),
-                  "platform_marker_before": marker_before, "platform_marker_after": marker},
+                  "platform_marker_before": marker_before, "platform_marker_after": marker,
+                  "confirmed_by": confirmed, "baseline_confirmed_by": baseline_confirmed},
     )
     if ledger_path is not None:
         append_record(ledger_path, result.to_dict())
