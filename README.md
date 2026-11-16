@@ -49,13 +49,16 @@ redline catalog list
 redline catalog show excessive-agency
 ```
 
-Entries document PortSwigger lab mechanisms; only executed scenarios produce results.
+The catalog documents three PortSwigger lab mechanisms: hypothesis, preconditions, expected evidence, negative controls, mappings, remediation and failure modes. It is a reference, not a training dataset; only `run` produces evidence. `catalog show` prints each entry's source URLs.
+
+Mappings were checked against the official [OWASP LLM 2025](https://genai.owasp.org/llm-top-10/) and [MITRE ATLAS 2026.09](https://github.com/mitre-atlas/atlas-data/blob/main/dist/v6/ATLAS-2026.09.yaml) sources, and against the PortSwigger lab pages linked in each entry.
 
 ## Scope and evidence
 
-- `mock` runs in memory. `trace` replays local JSON. Neither makes network calls or executes model-provided commands.
-- Results: `Confirmed` (fresh signal matched), `No breach observed` (not proof of security), `Inconclusive` (baseline already matched).
-- Records include UTC time, tool version and a scenario digest. Bad ledger lines are reported with their line number; earlier records stay readable.
+- `mock` runs in memory; `trace` replays local JSON. No network calls and no model-provided command execution. `redline selftest` exercises both adapters.
+- `tool_trace` requires the expected tool name and arguments; `state` counts added occurrences; `platform` requires a marker transition. `selftest` checks argument evidence and state counting.
+- Verdicts: `Confirmed` (fresh signal matched), `No breach observed` (not proof of security), `Inconclusive` (baseline already matched). `selftest` checks both demo modes, both trace fixtures and the baseline case; it exits 1 on any failure.
+- Ledger records include UTC time, tool version and a scenario digest. An invalid or truncated final line stops appending but keeps earlier records readable; `selftest` checks that path.
 - No general timeout controller. A network adapter would need bounded I/O.
 
 ## License

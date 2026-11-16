@@ -85,6 +85,9 @@ def cmd_selftest(args) -> int:
     check("identical prompts rejected",
           _raises(ValueError, lambda: replace(demo, attack_prompt=demo.baseline_prompt).validate()))
     check("unknown validator rejected", _raises(ValueError, lambda: replace(demo, validators=["nope"]).validate()))
+    baseline_hit = replace(demo, baseline_prompt=demo.attack_prompt, attack_prompt="Summarize invoice 17.")
+    check("baseline breach is inconclusive",
+          run_scenario(baseline_hit, _adapter(baseline_hit), _scope(baseline_hit)).status == "Inconclusive")
 
     double = replace(demo, expect={**demo.expect, "state": {"deleted": ["carlos", "carlos"]}}, validators=["state"])
     result = run_scenario(double, _adapter(double), _scope(double))

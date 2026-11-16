@@ -22,6 +22,7 @@ class Technique:
     remediation: str = ""
     failure_modes: list[str] = field(default_factory=list)
     source: str = ""
+    references: list[str] = field(default_factory=list)
 
 
 CATALOG: list[Technique] = [
@@ -44,13 +45,18 @@ CATALOG: list[Technique] = [
             "Prompt without the injected directive: no tool call.",
             "Same directive with a minimal tool set: action not possible.",
         ],
-        mappings={"owasp-llm": "LLM06:2025", "atlas": "AML.T0051"},
+        mappings={"owasp-llm": "LLM06:2025", "atlas": "AML.T0101 (ATLAS 2026.09)"},
         remediation="Grant the minimum tool set; enforce permissions independently of the prompt.",
         failure_modes=[
             "Model refuses the instruction (defense holds).",
             "Tool call is narrated but never executed.",
         ],
         source="PortSwigger: Exploiting LLM APIs with excessive agency",
+        references=[
+            "https://portswigger.net/web-security/llm-attacks/lab-exploiting-llm-apis-with-excessive-agency",
+            "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+            "https://github.com/mitre-atlas/atlas-data/blob/main/dist/v6/ATLAS-2026.09.yaml",
+        ],
     ),
     Technique(
         id="indirect-prompt-injection",
@@ -72,13 +78,18 @@ CATALOG: list[Technique] = [
             "Clean content: no unintended action.",
             "Direct instruction without the stored-content framing: often refused.",
         ],
-        mappings={"owasp-llm": "LLM01:2025", "atlas": "AML.T0051"},
+        mappings={"owasp-llm": "LLM01:2025", "atlas": "AML.T0051 (ATLAS 2026.09)"},
         remediation="Treat retrieved content as data; enforce permissions outside the prompt.",
         failure_modes=[
             "Content is retrieved but the model ignores the instruction.",
             "Direct commands are detected as unauthorized and dropped.",
         ],
         source="PortSwigger: indirect prompt injection and AI-scanner labs",
+        references=[
+            "https://portswigger.net/web-security/llm-attacks/lab-indirect-prompt-injection",
+            "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+            "https://github.com/mitre-atlas/atlas-data/blob/main/dist/v6/ATLAS-2026.09.yaml",
+        ],
     ),
     Technique(
         id="insecure-output-handling",
@@ -98,6 +109,10 @@ CATALOG: list[Technique] = [
         remediation="Encode and validate model output like any untrusted input.",
         failure_modes=["Output encoding neutralizes the payload."],
         source="PortSwigger: Exploiting insecure output handling in LLMs",
+        references=[
+            "https://portswigger.net/web-security/llm-attacks/lab-exploiting-insecure-output-handling-in-llms",
+            "https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/",
+        ],
     ),
 ]
 
