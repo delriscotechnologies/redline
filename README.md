@@ -8,13 +8,13 @@
 
 ---
 
-Redline evaluates whether an AI agent crosses an authorized boundary. It judges only independent signals: a tool call in a trace, an observable state change, or a platform-marker transition. A model claiming it performed an action is not evidence.
+Redline judges an agent by independent evidence: a tool call in a trace, a state change, or a platform marker. A model claiming it acted is not evidence.
 
-> Use Redline only against systems you own or have explicit permission to test.
+> Use it only on systems you own or have permission to test.
 
 ## Install
 
-Python 3.11 or newer. No external runtime dependencies. The package lives in `redline/` at the repository root.
+Python 3.11 or newer. No runtime dependencies.
 
 ```powershell
 git clone https://github.com/delriscotechnologies/redline.git
@@ -26,26 +26,21 @@ python -m pip install .
 
 ## Run
 
-The demo scenario and trace fixtures are packaged, so these commands work from any directory:
-
 ```powershell
 redline selftest
 redline run --mode vulnerable --ledger evidence/runs.jsonl
-redline run --mode contained --fail-on confirmed
-redline report --run <run-id> --format markdown
+redline report --run <run-id>
 ```
 
-`selftest` checks both demo modes, both trace fixtures, argument evidence, state counting, input guards and ledger recovery. Any failure exits with code 1. `--fail-on confirmed|inconclusive|none` (default `none`) makes `run` exit 1 on that verdict for CI. Run IDs are printed as JSON; the default ledger is `evidence/runs.jsonl` in the current directory.
+`selftest` exits 1 if any check fails. `run` prints JSON with the run ID; the ledger defaults to `evidence/runs.jsonl` in the current directory.
 
-To judge a captured trace, use a scenario with `adapter: "trace"` and point `--trace` at a local JSON file. The fixtures are [trace_scenario.json](redline/trace_scenario.json), [trace_vulnerable.json](redline/trace_vulnerable.json) and [trace_contained.json](redline/trace_contained.json):
+To judge a captured trace, pair a scenario with a local JSON trace. Prompts must match the scenario:
 
 ```powershell
 redline run --scenario redline/trace_scenario.json --trace redline/trace_vulnerable.json --fail-on confirmed
 ```
 
-The trace records both prompts, both responses, three snapshots (initial, before attack, after attack) and three markers. Prompts must match the scenario or the run is rejected.
-
-For a custom synthetic scenario use `--scenario path/to/scenario.json`; the included fixture is [excessive_agency.json](redline/excessive_agency.json). Selected validators require their matching expectations: tool and optional args for `tool_trace`, addition lists for `state`, and a marker string for `platform`. State validation counts newly added occurrences, including nested JSON values. Baseline and attack prompts must differ; otherwise the scenario is invalid.
+`--fail-on confirmed|inconclusive|none` (default `none`) exits 1 on that verdict for CI. Fixtures: [scenario](redline/excessive_agency.json), [trace scenario](redline/trace_scenario.json), [vulnerable trace](redline/trace_vulnerable.json), [contained trace](redline/trace_contained.json).
 
 ## Catalog
 
@@ -54,18 +49,14 @@ redline catalog list
 redline catalog show excessive-agency
 ```
 
-The three reference entries describe PortSwigger lab mechanisms and use OWASP LLM 2025 mappings. Catalog entries are documentation; the executable CLI demos cover excessive agency.
+Entries document PortSwigger lab mechanisms; only executed scenarios produce results.
 
 ## Scope and evidence
 
-- `mock` is a fixed in-memory adapter. `trace` only replays local JSON; no live model, HTTP or MCP connection is made.
-- The runner checks the adapter target against an exact allowlist, counts the two-request budget before each send and verifies trace prompts before replaying them.
-- State changes and marker transitions are measured immediately around the attack. If the baseline already matches breach evidence, the result is Inconclusive; the reason is recorded in `confirmed_by` and `baseline_confirmed_by`.
-- Confirmed means a fresh independent signal matched. No breach observed does not prove security. Textual refusal alone is not a verified block.
-- JSONL records include UTC time, tool version and a scenario digest. Reports display untrusted text inside fenced JSON.
-- Appending refuses an incomplete or invalid final ledger line. Earlier valid records remain readable and a bad line is reported with its path and line number.
-- There is no general timeout controller. Any future network adapter must implement its own bounded I/O.
-- Redline never executes model-provided shell commands.
+- `mock` runs in memory. `trace` replays local JSON. Neither makes network calls or executes model-provided commands.
+- Results: `Confirmed` (fresh signal matched), `No breach observed` (not proof of security), `Inconclusive` (baseline already matched).
+- Records include UTC time, tool version and a scenario digest. Bad ledger lines are reported with their line number; earlier records stay readable.
+- No general timeout controller. A network adapter would need bounded I/O.
 
 ## License
 
