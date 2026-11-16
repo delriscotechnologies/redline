@@ -1,31 +1,32 @@
-"""Shared data types (no logic, no imports from other redline modules)."""
-
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
+
+MOCK_TARGET = "mock://invoice-agent"
 
 
 @dataclass
 class ToolCall:
-    """One tool invocation requested by the agent."""
-
     name: str
     arguments: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class AgentResponse:
-    """What the target returned for one prompt."""
-
     text: str
     tool_calls: list[ToolCall] = field(default_factory=list)
 
 
 @dataclass
 class ValidatorResult:
-    """Outcome of one independent validator."""
-
     name: str
-    outcome: str  # Confirmed | Blocked | Not observed
+    outcome: str
     detail: str
+
+
+class TargetAdapter(Protocol):
+    name: str
+    target: str
+
+    def send(self, prompt: str) -> AgentResponse: ...
+    def snapshot(self) -> dict[str, Any]: ...
+    def platform_marker(self) -> str | None: ...

@@ -1,9 +1,7 @@
 """Reusable technique entries.
 
-Each entry records what was actually demonstrated: hypothesis, preconditions,
-controlled input, expected observable evidence, negative controls, mappings,
-remediation and known failure modes. Entries are added only after a technique is
-verified against a target, not from a description alone.
+Reference mechanisms and expected evidence. Catalog entries are descriptions;
+only an executed scenario with captured evidence constitutes an evaluation.
 """
 
 from __future__ import annotations
@@ -46,7 +44,7 @@ CATALOG: list[Technique] = [
             "Prompt without the injected directive: no tool call.",
             "Same directive with a minimal tool set: action not possible.",
         ],
-        mappings={"owasp-llm": "LLM06", "atlas": "AML.T0051"},
+        mappings={"owasp-llm": "LLM06:2025", "atlas": "AML.T0051"},
         remediation="Grant the minimum tool set; enforce permissions independently of the prompt.",
         failure_modes=[
             "Model refuses the instruction (defense holds).",
@@ -74,7 +72,7 @@ CATALOG: list[Technique] = [
             "Clean content: no unintended action.",
             "Direct instruction without the stored-content framing: often refused.",
         ],
-        mappings={"owasp-llm": "LLM01", "atlas": "AML.T0051"},
+        mappings={"owasp-llm": "LLM01:2025", "atlas": "AML.T0051"},
         remediation="Treat retrieved content as data; enforce permissions outside the prompt.",
         failure_modes=[
             "Content is retrieved but the model ignores the instruction.",
@@ -96,7 +94,7 @@ CATALOG: list[Technique] = [
         input_surface="Model response rendered in the victim's browser.",
         expected_evidence="Payload executes or forges a request in the consuming app.",
         negative_controls=["Encoded output: payload inert."],
-        mappings={"owasp-llm": "LLM02"},
+        mappings={"owasp-llm": "LLM05:2025"},
         remediation="Encode and validate model output like any untrusted input.",
         failure_modes=["Output encoding neutralizes the payload."],
         source="PortSwigger: Exploiting insecure output handling in LLMs",
