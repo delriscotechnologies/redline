@@ -49,9 +49,9 @@ redline catalog list
 redline catalog show excessive-agency
 ```
 
-The catalog documents three PortSwigger lab mechanisms: hypothesis, preconditions, expected evidence, negative controls, mappings, remediation and failure modes. It is a reference, not a training dataset; only `run` produces evidence. `catalog show` prints each entry's source URLs.
+The catalog documents four mechanisms: three PortSwigger labs and one sanitized assessment case. Each records hypothesis, preconditions, expected evidence, negative controls, mappings, remediation and failure modes. It is a reference, not a training dataset; only `run` produces evidence. `catalog show` prints each entry's source URLs.
 
-Mappings were checked against the official [OWASP LLM 2025](https://genai.owasp.org/llm-top-10/) and [MITRE ATLAS 2026.09](https://github.com/mitre-atlas/atlas-data/blob/main/dist/v6/ATLAS-2026.09.yaml) sources, and against the PortSwigger lab pages linked in each entry.
+Mappings were checked against the official [OWASP LLM 2025](https://genai.owasp.org/llm-top-10/), [MITRE ATLAS 2026.09](https://github.com/mitre-atlas/atlas-data/blob/main/dist/v6/ATLAS-2026.09.yaml) and [CWE](https://cwe.mitre.org/) sources, plus the lab pages linked in each entry.
 
 ## Scope and evidence
 
