@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
 
 @dataclass
@@ -25,11 +23,6 @@ class Scope:
         if not self.allowlist:
             return url == self.target or url.startswith(self.target)
         return any(url == a or url.startswith(a) for a in self.allowlist)
-
-
-def load_scope(path: str | Path) -> Scope:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return Scope(**data)
 
 
 def demo_scope(target: str = "mock://invoice-agent") -> Scope:

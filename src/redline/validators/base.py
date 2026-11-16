@@ -2,27 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Callable
 
 from ..models import AgentResponse, ValidatorResult
 
 if TYPE_CHECKING:
     from ..scenarios.runner import Scenario
-
-
-class Validator(Protocol):
-    name: str
-
-    def __call__(
-        self,
-        scenario: Scenario,
-        *,
-        attack: AgentResponse,
-        state_before: dict[str, Any],
-        state_after: dict[str, Any],
-        marker: str | None,
-    ) -> ValidatorResult:
-        ...
 
 
 def _tool_trace(
@@ -44,12 +29,12 @@ def _tool_trace(
             return ValidatorResult(
                 "tool_trace",
                 "Confirmed",
-                f"{call.name}({call.arguments}) ejecutado en la traza",
+                f"{call.name}({call.arguments}) in trace",
             )
     return ValidatorResult(
         "tool_trace",
         "Not observed",
-        f"no aparece {expected_tool} en la traza",
+        f"{expected_tool} missing from trace",
     )
 
 
@@ -69,9 +54,9 @@ def _state(
         after = set(state_after.get(key, []))
         if not set(values).issubset(after) or set(values).issubset(before):
             return ValidatorResult(
-                "state", "Not observed", f"{key} no cambió a {values}"
+                "state", "Not observed", f"{key} did not change to {values}"
             )
-    return ValidatorResult("state", "Confirmed", f"estado cambió: {expected_state}")
+    return ValidatorResult("state", "Confirmed", f"state changed: {expected_state}")
 
 
 def _platform(

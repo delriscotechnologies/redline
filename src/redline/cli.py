@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
-import sys
-from pathlib import Path
 
 from .adapters import InjectionRule, MockAdapter
 from .catalog import get_technique, list_techniques
