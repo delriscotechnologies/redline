@@ -73,7 +73,7 @@ Reports default to Markdown. To use another store, add `--store PATH_TO_STORE` t
 | No breach observed | Required evidence was available; no selected validator found a matching request, execution or effect. |
 | Inconclusive | Baseline signals, missing required evidence or starting conditions, partial confirmation, or conflicting observations prevent a conclusion. |
 
-See the [technical reference](docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility and development commands.
+See the [technical reference](assets/docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility and development commands.
 
 ## Scope and limits
 
