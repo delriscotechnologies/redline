@@ -4,7 +4,6 @@ from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .catalog import get_technique, list_techniques
 from .mock import make_trace
 from .models import load_scenario, parse_json
 from .report import read_record, save_record, to_json, to_markdown
@@ -17,10 +16,6 @@ FAIL_ON = {"confirmed": "Confirmed", "attempt": "Attempt observed", "inconclusiv
 def build_parser():
     parser = argparse.ArgumentParser(prog="redline", description="Offline evaluation of AI-agent evidence.")
     commands = parser.add_subparsers(dest="command", required=True)
-    catalog = commands.add_parser("catalog", help="reference mechanisms, not executable tests")
-    sub = catalog.add_subparsers(dest="action", required=True)
-    sub.add_parser("list")
-    sub.add_parser("show").add_argument("technique")
     run = commands.add_parser("run", help="evaluate a capture or run the synthetic demo")
     run.add_argument("--scenario")
     run.add_argument("--trace")
@@ -69,13 +64,7 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "catalog":
-            if args.action == "list":
-                for entry in list_techniques():
-                    print(f"{entry['id']:28} {entry['name']} [{entry['source']}]")
-            else:
-                print(to_json(get_technique(args.technique)))
-        elif args.command == "selftest":
+        if args.command == "selftest":
             return selftest()
         elif args.command == "run":
             if "none" in args.fail_on and len(args.fail_on) > 1:
