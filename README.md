@@ -70,8 +70,8 @@ Reports default to Markdown. To use another store, add `--store PATH_TO_STORE` t
 | --- | --- |
 | Confirmed | All required validators confirmed their expected evidence. |
 | Attempt observed | A matching request was recorded, without confirmed execution or effect. |
-| No breach observed | Required evidence was available; no selected validator found a matching request, execution or effect. |
-| Inconclusive | Baseline signals, missing required evidence or starting conditions, partial confirmation, or conflicting observations prevent a conclusion. |
+| No breach observed | Required evidence was available; no selected attack validator found a matching request, execution or effect. |
+| Inconclusive | Confirmed baseline signals, missing required evidence or starting conditions, partial confirmation, or conflicting observations prevent a conclusion. |
 
 See the [technical reference](assets/docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility and development commands.
 
