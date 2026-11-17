@@ -17,9 +17,8 @@ The installed package contains these resources:
 | [trace_scenario.json](../redline/trace_scenario.json) | Scenario for the imported examples. |
 | [trace_vulnerable.json](../redline/trace_vulnerable.json) | Synthetic capture with a matching call and effect. |
 | [trace_contained.json](../redline/trace_contained.json) | Synthetic capture with available, negative observations. |
-| [catalog.json](../redline/catalog.json) | Reference mechanisms. |
 
-The default demo, `selftest` and catalog commands use `importlib.resources` and work outside the checkout. Explicit paths such as `--scenario redline/trace_scenario.json` refer to the current working directory, not package resources. Use absolute paths when running imports elsewhere. Both bundled scenarios select all three validators but require only `state` for confirmation.
+The default demo and `selftest` use `importlib.resources` and work outside the checkout. Explicit paths such as `--scenario redline/trace_scenario.json` refer to the current working directory, not package resources. Use absolute paths when running imports elsewhere. Both bundled scenarios select all three validators but require only `state` for confirmation.
 
 ## Scenario format
 
@@ -27,7 +26,7 @@ The default demo, `selftest` and catalog commands use `importlib.resources` and 
 
 | Field | Requirement |
 | --- | --- |
-| `id`, `technique_id` | Nonempty strings. The technique need not exist in the catalog. |
+| `id`, `technique_id` | Nonempty strings. `technique_id` is a free-form label stored with the scenario. |
 | `adapter`, `target` | Adapter is `mock` or `trace`; target is a nonempty binding string, with the fixed target required for mock. |
 | `baseline_prompt`, `attack_prompt` | Distinct, nonempty strings. |
 | `validators` | Nonempty, unique list drawn from `tool_trace`, `state`, `platform`; defaults to all three. |
@@ -120,27 +119,9 @@ Every nonblank line must parse as a JSON object with a unique, nonempty string `
 
 The JSON output contains `scenario_id`, both run IDs and full evaluations, a `changed` boolean, and a note about the single paired observation. `changed` compares the canonical evaluations, including baseline checks and validator details, not just verdicts. It does not diff the raw captures: changing only response text, capture metadata or unexamined state can leave `changed` false. Different verdicts do not change the comparison command's exit code.
 
-## Catalog
-
-```text
-redline catalog list
-redline catalog show excessive-agency
-```
-
-[catalog.py](../redline/catalog.py) only lists/looks up the bundled JSON; it does not execute a mechanism or validate its mappings. The four entries document hypotheses, preconditions, evidence, controls, failure modes, remediation and source links:
-
-| ID | Bundled executable scenario |
-| --- | --- |
-| `excessive-agency` | Mock demo and imported synthetic fixtures. |
-| `indirect-prompt-injection` | None. |
-| `insecure-output-handling` | None. |
-| `tool-surface-agency` | None. |
-
-The first three entries cite PortSwigger labs; the fourth describes a sanitized assessment whose original evidence is not publicly verifiable. OWASP labels refer to 2025 and ATLAS annotations to 2026.09. The indirect-injection entry uses ATLAS `AML.T0051.001` (Indirect), under `AML.T0051` (LLM Prompt Injection). These are reference annotations, not evidence that Redline reproduced those labs or independently verified the external assessment. Impact mappings need the stated evidence; CWE-78 and CWE-502 apply only when command injection or unsafe deserialization is actually established. The catalog is not a training dataset.
-
 ## CLI and development
 
-Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `run`, `report`, `compare`, `catalog` or `selftest`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
+Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `run`, `report`, `compare` or `selftest`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -158,4 +139,4 @@ python -m compileall -q redline tests
 redline selftest
 ```
 
-`selftest` checks vulnerable/contained cases for both adapters, including record creation, storage, reading and verification. It uses installed fixtures and a temporary store; it takes no custom scenario option. The [regression suite](../tests/test_redline.py) checks evidence selection, missing/contradictory telemetry, state preconditions, JSON types, mode binding, versioned verification, legacy corruption, CLI failures and comparisons. The [workflow](../.github/workflows/check.yml) installs the package, runs these checks on Python 3.11 and 3.14 on Linux and Windows, and runs `selftest` outside the checkout. Windows jobs also execute the README's installation block in `cmd.exe`, then check CLI help, selftest and the catalog from outside the cloned checkout. Its triggers are pushes to `main`/`holograma` and manual dispatch.
+`selftest` checks vulnerable/contained cases for both adapters, including record creation, storage, reading and verification. It uses installed fixtures and a temporary store; it takes no custom scenario option. The [regression suite](../tests/test_redline.py) checks evidence selection, missing/contradictory telemetry, state preconditions, JSON types, mode binding, versioned verification, legacy corruption, CLI failures and comparisons. The [workflow](../.github/workflows/check.yml) installs the package, runs these checks on Python 3.11 and 3.14 on Linux and Windows, and runs `selftest` outside the checkout. Windows jobs also execute the README's installation block in `cmd.exe`, then check CLI help and selftest from outside the cloned checkout. Its triggers are pushes to `main`/`holograma` and manual dispatch.

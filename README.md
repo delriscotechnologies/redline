@@ -32,7 +32,7 @@ python -m pip install .
 
 - Evaluate captured tool calls, state changes and platform markers against a scenario's required evidence.
 - Save evaluations and generate verified reports in Markdown or JSON.
-- Compare evaluations for the same scenario and policy, and browse a catalog of reference mechanisms.
+- Compare evaluations for the same scenario and policy.
 
 ## Evaluate a capture
 
@@ -73,12 +73,12 @@ Reports default to Markdown. To use another store, add `--store PATH_TO_STORE` t
 | No breach observed | Required evidence was available; no selected validator found a matching request, execution or effect. |
 | Inconclusive | Baseline signals, missing required evidence or starting conditions, partial confirmation, or conflicting observations prevent a conclusion. |
 
-See the [technical reference](docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility, the catalog and development commands.
+See the [technical reference](docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility and development commands.
 
 ## Scope and limits
 
 - **Offline evaluation.** `trace` reads local JSON; it does not replay actions. Neither adapter contacts a model or remote target, or executes captured commands. `target` is a binding identifier.
-- **Bundled coverage.** Only excessive agency has bundled scenarios. The catalog's four mechanisms are references, not four executable assessments; the built-in `mock` adapter simulates one fixed instruction in memory.
+- **Bundled coverage.** Only excessive agency has bundled scenarios. The built-in `mock` adapter simulates one fixed instruction in memory.
 - **Capture trust.** Imported captures are operator-supplied. Hashes and verdict recomputation check record consistency, not authenticity, real-world events or causation. Reports retain captured content; review it before sharing.
 - **Result interpretation.** Confirmation is limited to the scenario's required evidence level; reported execution need not establish an effect. A negative result or refusal does not prove security. `compare` checks evaluations for one pair, not all trace differences or statistical effectiveness.
 - **Operational requirements.** JSON input files and saved records are each limited to 8 MiB; the combined record must also fit. Storage needs a writable filesystem with hard links. Comparisons require the same scenario digest and evaluation policy. See the reference for version and legacy-record rules.

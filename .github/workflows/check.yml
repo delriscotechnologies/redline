@@ -47,7 +47,6 @@ jobs:
               'cd /d "%RUNNER_TEMP%"',
               'redline --help',
               'redline selftest',
-              'redline catalog list',
           ]
           script = "\n".join(command + "\nif errorlevel 1 exit 1" for command in commands)
           with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as directory:

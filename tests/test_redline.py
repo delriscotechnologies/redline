@@ -7,7 +7,6 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
-from redline.catalog import get_technique, list_techniques
 from redline.cli import main, selftest
 from redline.mock import make_trace
 from redline.models import MAX_BYTES, canonical, digest, load_scenario, parse_json, read_json
@@ -145,11 +144,9 @@ class EvaluationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 read_json(path)
 
-    def test_selftest_and_catalog(self):
+    def test_selftest(self):
         with redirect_stdout(io.StringIO()):
             self.assertEqual(selftest(), 0)
-        self.assertEqual(len(list_techniques()), 4)
-        self.assertTrue(get_technique("tool-surface-agency")["references"])
 
     def test_baseline_attempt_does_not_contaminate_effect(self):
         trace = deepcopy(self.hit)
