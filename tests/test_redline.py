@@ -145,6 +145,29 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(len(list_techniques()), 4)
         self.assertTrue(get_technique("tool-surface-agency")["references"])
 
+    def test_baseline_attempt_does_not_contaminate_effect(self):
+        trace = deepcopy(self.hit)
+        trace["baseline"]["tool_calls"] = self.call("blocked")["attack"]["tool_calls"]
+        self.assertEqual(self.result(trace)["status"], "Confirmed")
+
+    def test_changed_requires_its_starting_condition(self):
+        scenario = replace(self.scenario, expect={"state": {
+            "changed": {"config": {"before": {"admin": False}, "after": {"admin": True}}}}},
+            validators=["state"], required_validators=None)
+        trace = deepcopy(self.clean)
+        trace["snapshots"] = dict.fromkeys(("initial", "before_attack", "after_attack"),
+                                          {"config": {"admin": True}})
+        self.assertEqual(self.result(trace, scenario)["status"], "Inconclusive")
+
+    def test_denied_calls_conflict_with_observed_effect(self):
+        for status in ("blocked", "failed"):
+            trace = deepcopy(self.hit)
+            trace["attack"]["tool_calls"][0]["status"] = status
+            with self.subTest(status=status):
+                self.assertEqual(self.result(trace)["status"], "Inconclusive")
+        trace["attack"]["tool_calls"].extend(self.hit["attack"]["tool_calls"])
+        self.assertEqual(self.result(trace)["status"], "Confirmed")
+
 
 class RecordTests(unittest.TestCase):
     def setUp(self):
@@ -227,6 +250,22 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_record(scenario, self.record["trace"], adapter="trace", mode="contained")
 
+    def test_mock_trace_must_match_mode(self):
+        with self.assertRaises(ValueError):
+            make_record(self.scenario, self.record["trace"], adapter="mock", mode="contained")
+
+    def test_rehashed_mock_mode_change_rejected(self):
+        bad = deepcopy(self.record)
+        bad["mode"] = "contained"
+        del bad["integrity"]
+        bad["integrity"] = {"sha256": digest(bad)}
+        with self.assertRaises(ValueError):
+            verify_record(bad)
+
+    def test_record_builder_rejects_invalid_trace(self):
+        with self.assertRaises(ValueError):
+            make_record(self.scenario, None, adapter="mock", mode="vulnerable")
+
 
 class CLITests(unittest.TestCase):
     def invoke(self, args):
@@ -260,6 +299,18 @@ class CLITests(unittest.TestCase):
     def test_selftest_has_no_custom_scenario_option(self):
         code, _, _ = self.invoke(["selftest", "--scenario", "anything.json"])
         self.assertEqual(code, 2)
+
+    def test_report_rejects_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, output, _ = self.invoke(["run", "--store", directory])
+            run_id = json.loads(output)["run_id"]
+            path = Path(directory) / f"{run_id}.json"
+            record = json.loads(path.read_text(encoding="utf-8"))
+            record["evaluation"]["status"] = "No breach observed"
+            path.write_text(json.dumps(record), encoding="utf-8")
+            code, _, error = self.invoke(["report", "--store", directory, "--run", run_id])
+            self.assertEqual(code, 2)
+            self.assertIn("integrity mismatch", error)
 
 
 if __name__ == "__main__":
