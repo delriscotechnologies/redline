@@ -2,120 +2,91 @@
   <img src="assets/redline-logo.png" alt="Redline logo" width="600" style="max-width:100%;">
 </p>
 
-<p align="center">Offline evaluation of AI-agent evidence.</p>
-
----
-
-Redline evaluates captured traces against an explicit scenario. It distinguishes a tool request, reported execution and an observed effect. It also includes a deterministic mock demo; no live model, network connection or model-provided command is executed.
+An agent saying it acted is not enough to establish what happened. Redline evaluates captured tool calls, state changes and platform markers against an explicit scenario, distinguishing requests, reported execution and observed effects.
 
 ## Install
 
-Python 3.11 or newer. No runtime dependencies. Installation uses setuptools.
+Requires Git and Python 3.11+ with `venv` and pip. Redline has no runtime dependencies; installation may download setuptools to build the package.
 
-```powershell
-git clone https://github.com/delriscotechnologies/redline.git
+Linux (Bash):
+
+```bash
+git clone --branch holograma https://github.com/delriscotechnologies/redline.git
 cd redline
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install .
 ```
 
-On Linux, create the environment with `python3 -m venv .venv` and activate it with `source .venv/bin/activate`.
+Windows (Command Prompt, `cmd.exe`):
+
+```bat
+git clone --branch holograma https://github.com/delriscotechnologies/redline.git
+cd redline
+py -3 -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install .
+```
 
 ## Try the demo
 
-```powershell
+Keep the environment active. Run the following commands from the repository root:
+
+```text
 redline selftest
 redline run --mode vulnerable
 redline run --mode contained
-redline report --run RUN_ID --verify
+```
+
+The runs print `Confirmed` and `No breach observed`, respectively, with a unique `run_id` for each. Replace `VULNERABLE_RUN_ID` and `CONTAINED_RUN_ID` below with those IDs:
+
+```text
+redline report --run VULNERABLE_RUN_ID
 redline compare --before VULNERABLE_RUN_ID --after CONTAINED_RUN_ID
 ```
 
-Replace the uppercase IDs with those printed by `run`. Each run is stored in `evidence/RUN_ID.json`; use `--store DIRECTORY` consistently to change its location. The demo recognizes one fixed deletion instruction. It checks the evaluator, not a model's resistance to attacks.
+Runs are saved as `evidence/RUN_ID.json`, relative to the current directory. To use another directory, add `--store PATH_TO_STORE` to each `run`, `report` and `compare` command, replacing `PATH_TO_STORE` with that directory. Reports default to Markdown; add `--format json` for JSON.
 
 ## Evaluate a capture
 
-From the repository root:
+From the repository root, import the bundled example:
 
-```powershell
+```text
 redline run --scenario redline/trace_scenario.json --trace redline/trace_vulnerable.json --fail-on confirmed inconclusive
 ```
 
-The fixtures are synthetic examples. Supply your own scenario and capture to evaluate evidence from an authorized assessment. A trace is read locally; its target is a binding identifier, not an address Redline contacts or proof of authorization. `--mode` is accepted only by the mock demo.
-
-| Verdict | Meaning |
-| --- | --- |
-| Confirmed | Every required validator matched at its recorded evidence level. |
-| Attempt observed | A matching request exists without confirmed execution/effect. Blocked or failed calls remain attempts. |
-| No breach observed | Required observations were available, but the expected signal was not observed. |
-| Inconclusive | A confirmed baseline signal, missing prerequisites, partial confirmation or contradictory observations. |
-
-A blocked baseline request alone does not invalidate a later observed effect. If all matching calls are blocked/failed but effect evidence matches, the result is inconclusive. A successful matching call resolves that specific conflict; it does not prove which call caused an effect.
-
-A confirmed execution does not automatically confirm a downstream effect. A negative observation does not establish security, and a textual refusal is not proof of enforcement.
-
-Exit codes: `0` for a completed evaluation without a selected failure verdict; `1` for a selected `--fail-on` verdict or a failed selftest; `2` for invalid input or an operational error. Select `confirmed`, `attempt`, `inconclusive`, or `none` (default). Multiple failure verdicts can be selected; `none` must stand alone.
-
-## Scenarios and evidence
-
-[The demo scenario](redline/excessive_agency.json) and [trace scenario](redline/trace_scenario.json) show the format. A custom `technique_id` is allowed without modifying the catalog.
-
-- `validators` selects observations. `required_validators` selects those necessary to confirm; when omitted, all selected validators are required.
-- `tool_trace` matches the tool name and a type-sensitive subset of expected `args`. Call `status` is `requested` (also the default), `blocked`, `failed`, or `succeeded`. Only the last confirms reported execution.
-- `state` compares three snapshots: `initial`, `before_attack`, and `after_attack`. Missing fields are unavailable evidence, never implicitly empty lists. A `changed` check also requires its declared starting value; otherwise its precondition is unavailable.
-- `platform` requires an observable string-marker transition. Null/missing observations or an already-satisfied marker are unavailable for confirmation.
-
-State expectations support additions/removals with multiplicity and exact before/after changes, including nested JSON values:
+Expected output (`RUN_ID` varies):
 
 ```json
 {
-  "state": {
-    "removed": {"users": ["carlos"]},
-    "changed": {"config": {"before": {"admin": false}, "after": {"admin": true}}}
-  }
+  "run_id": "RUN_ID",
+  "status": "Confirmed",
+  "reason": "required_evidence_matched",
+  "evidence_level": "effect"
 }
 ```
 
-Put this inside `expect` and select `state`. Add `tool`/`args` or `marker` when selecting their validators. The old `"state": {"deleted": ["carlos"]}` syntax is accepted as additions. Comparisons preserve JSON types; booleans do not equal numbers.
+This command saves the run and intentionally exits **1** because `confirmed` is selected. `run` exits **0** when no selected failure verdict matches, and **2** for invalid input or an operational error. `--fail-on` accepts `confirmed`, `attempt`, `inconclusive`, or `none` (the default); `none` must stand alone.
 
-Captures must bind to the scenario's exact target and prompts. See [vulnerable](redline/trace_vulnerable.json) and [contained](redline/trace_contained.json) examples. Missing telemetry may be null or omitted; available empty tool lists/snapshots must be explicit. Optional `capture` fields are `source`, `id`, and timezone-aware `captured_at`.
+For your own authorized assessment, replace the two fixture paths with your scenario and capture files. Use `adapter: "trace"` in the scenario and omit `--mode`. The capture's target and prompts must match the scenario exactly.
 
-## Reports and integrity
+| Verdict | Meaning |
+| --- | --- |
+| Confirmed | All required validators confirmed their expected evidence. |
+| Attempt observed | A matching request was recorded, without confirmed execution or effect. |
+| No breach observed | Required evidence was available; no selected validator found a matching request, execution or effect. |
+| Inconclusive | Baseline signals, missing required evidence or starting conditions, partial confirmation, or conflicting observations prevent a conclusion. |
 
-```powershell
-redline report --run RUN_ID --format json
-redline report --run OLD_RUN_ID --ledger evidence/runs.jsonl
-```
+See the [technical reference](docs/reference.md) for scenario and capture formats, verdict rules, storage, compatibility, the catalog and development commands.
 
-New reports are always verified: hashes are checked and the evaluator recomputes the verdict using the embedded scenario, trace and evaluation policy. New runs use policy version 2; version 1 records retain their original policy when verified. Synthetic traces must also match the declared mock mode. Records include adapter, demo mode when applicable, capture metadata, UTC recording time and tool version.
+## Scope and limits
 
-Imported captures are labeled **operator-supplied**. Hashes detect changes relative to a saved digest; they do not authenticate the capture, prove an event happened or prevent someone from fabricating a new self-consistent record. Execution status must come from an appropriate backend capture, not the model's narrative.
-
-Each record is published atomically without overwriting another run, using a temporary file and an exclusive hard link on the same local filesystem. Filesystems must support hard links. This is not a power-loss durability guarantee. Legacy JSONL is read-only and unverified; any corrupt line or duplicate run ID rejects the file. `--verify` rejects legacy records.
-
-Inputs, legacy ledgers and saved records are limited to 8 MiB each. Reports retain captured content: review it before publishing. The default `evidence/` directory is ignored by Git.
-
-`compare` verifies both records and requires an identical scenario digest and evaluation policy version. It shows changed observations, not a statistical success rate or a claim that a defense is universally effective.
-
-## Catalog
-
-```powershell
-redline catalog list
-redline catalog show excessive-agency
-```
-
-[Four reference mechanisms](redline/catalog.json) document hypotheses, controls, evidence, mappings and remediation. They do not execute tests or constitute a training dataset. OWASP mappings use the 2025 edition; ATLAS annotations use 2026.09. Impact and CWE mappings are conditional on the demonstrated mechanism. The sanitized assessment's original evidence is not publicly verifiable.
-
-## Development
-
-```powershell
-python -m unittest discover -s tests -v
-redline selftest
-```
-
-`selftest` performs four installed-fixture checks, each including storage and verification. The regression suite covers evidence levels, missing telemetry, state preconditions, contradictory observations, JSON types, mode binding, versioned verification, legacy corruption, CLI exit codes and comparisons. GitHub Actions checks Python 3.11 and 3.14 on Linux and Windows.
+- **Offline evaluation.** `trace` reads local JSON; it does not replay actions. Neither adapter contacts a model or remote target, or executes captured commands. `target` is a binding identifier.
+- **Synthetic demo.** `mock` simulates one fixed deletion instruction in memory. Only excessive agency has bundled scenarios; the catalog's four mechanisms are references, not four executable assessments.
+- **Capture trust.** Imported captures are operator-supplied. Hashes and verdict recomputation check record consistency, not authenticity, real-world events or causation. Reports retain captured content; review it before sharing.
+- **Result interpretation.** Confirmation is limited to the scenario's required evidence level; reported execution need not establish an effect. A negative result or refusal does not prove security. `compare` checks evaluations for one pair, not all trace differences or statistical effectiveness.
+- **Operational requirements.** JSON input files and saved records are each limited to 8 MiB; the combined record must also fit. Storage needs a writable filesystem with hard links. Comparisons require the same scenario digest and evaluation policy. See the reference for version and legacy-record rules.
 
 ## License
 
-[MIT](LICENSE). Use assessment captures only from systems you own or are authorized to test.
+[MIT](LICENSE).
