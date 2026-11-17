@@ -11,7 +11,7 @@ Requires Git and Python 3.11+ with `venv` and pip. Redline has no runtime depend
 Linux (Bash):
 
 ```bash
-git clone --branch holograma https://github.com/delriscotechnologies/redline.git
+git clone --branch main https://github.com/delriscotechnologies/redline.git
 cd redline
 python3 -m venv .venv
 source .venv/bin/activate
@@ -21,7 +21,7 @@ python -m pip install .
 Windows (Command Prompt, `cmd.exe`):
 
 ```bat
-git clone --branch holograma https://github.com/delriscotechnologies/redline.git
+git clone --branch main https://github.com/delriscotechnologies/redline.git
 cd redline
 py -3 -m venv .venv
 .venv\Scripts\activate.bat

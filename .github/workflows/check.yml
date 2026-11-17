@@ -2,7 +2,7 @@ name: holograma
 
 on:
   push:
-    branches: [main, holograma]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
