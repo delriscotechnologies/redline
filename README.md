@@ -85,4 +85,4 @@ See the [technical reference](assets/docs/reference.md) for scenario and capture
 
 ## License
 
-[MIT](LICENSE).
+Redline is released under the [MIT License](LICENSE).
