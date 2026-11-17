@@ -5,5 +5,5 @@ venv/
 *.egg-info/
 build/
 dist/
-evidence/runs.jsonl
+evidence/
 .pytest_cache/

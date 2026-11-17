@@ -1,65 +1,83 @@
 import json
+import os
 import re
-import sys
+import tempfile
 from pathlib import Path
 
+from .models import MAX_BYTES, parse_json, read_json, read_text
+from .runner import verify_record
 
-def to_json(record) -> str:
-    return json.dumps(record, ensure_ascii=False, indent=2, allow_nan=False)
+
+def to_json(value):
+    return json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False)
 
 
-def append_record(path, record) -> None:
-    path = Path(path)
-    data = (json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.stat().st_size:
-        with path.open("rb") as fh:
-            fh.seek(-1, 2)
-            if fh.read(1) != b"\n":
-                raise ValueError(f"{path}: incomplete final ledger line; repair before appending")
-            fh.seek(0)
-            last = None
-            for line in fh:
-                if line.strip():
-                    last = line
+def save_record(directory, record):
+    verify_record(record)
+    directory = Path(directory)
+    if directory.suffix.lower() == ".jsonl":
+        raise ValueError("JSONL is read-only; use --store evidence for new runs")
+    if not re.fullmatch(r"[0-9a-f]{32}", record["run_id"]):
+        raise ValueError("invalid run ID")
+    data = (to_json(record) + "\n").encode("utf-8")
+    if len(data) > MAX_BYTES:
+        raise ValueError("record exceeds the readable size limit")
+    directory.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=directory, prefix=".", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, directory / f"{record['run_id']}.json")
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def read_record(store, run_id):
+    """Load untrusted data; reporting and comparison must verify it."""
+    store = Path(store)
+    if store.is_dir():
+        if not re.fullmatch(r"[0-9a-f]{32}", run_id):
+            raise ValueError("invalid run ID")
+        record = read_json(store / f"{run_id}.json")
+        if not isinstance(record, dict) or record.get("run_id") != run_id:
+            raise ValueError("record run ID mismatch")
+        return record
+    if store.suffix.lower() != ".jsonl":
+        raise ValueError("store must be a run directory or a legacy JSONL file")
+    found = None
+    seen = set()
+    for number, line in enumerate(read_text(store).splitlines(), 1):
+        if not line.strip():
+            continue
         try:
-            json.loads(last)
-        except (json.JSONDecodeError, TypeError) as exc:
-            raise ValueError(f"{path}: incomplete final record; repair before appending") from exc
-    with path.open("ab") as fh:
-        fh.write(data)
+            record = parse_json(line)
+            if not isinstance(record, dict) or not isinstance(record.get("run_id"), str) or not record["run_id"]:
+                raise ValueError("entry needs a run_id")
+            if record["run_id"] in seen:
+                raise ValueError("duplicate run ID")
+        except ValueError as exc:
+            raise ValueError(f"{store}:{number}: invalid legacy ledger: {exc}") from exc
+        if record["run_id"] == run_id:
+            found = record
+        seen.add(record["run_id"])
+    return found
 
 
-def read_records(path):
-    path = Path(path)
-    if not path.exists():
-        return
-    with path.open(encoding="utf-8") as fh:
-        for number, line in enumerate(fh, 1):
-            if not line.strip():
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                print(f"redline: {path}:{number}: invalid ledger JSON; stopping", file=sys.stderr)
-                return
-            if not isinstance(record, dict):
-                print(f"redline: {path}:{number}: ledger entry is not an object; stopping", file=sys.stderr)
-                return
-            yield record
-
-
-def to_markdown(record) -> str:
-    summary = {k: record.get(k) for k in
-               ("run_id", "scenario_id", "technique_id", "target", "mode", "status")}
+def to_markdown(record):
+    if record.get("schema_version") == 1:
+        fields = [("Summary", {key: record.get(key) for key in
+                              ("run_id", "adapter", "mode", "recorded_at", "tool_version", "evaluation_version")}),
+                  ("Evaluation", record["evaluation"]), ("Provenance", record["provenance"]),
+                  ("Scenario", record["scenario"]), ("Trace", record["trace"]), ("Integrity", record["integrity"])]
+    else:
+        fields = [("Legacy record (unverified)", record)]
     parts = ["# Redline report"]
-    for title, value in (
-        ("Summary", summary), ("Baseline", record.get("baseline", {})),
-        ("Attack", record.get("attack", {})), ("Validators", record.get("validators", [])),
-        ("State", {"before_attack": record.get("state_before"), "after_attack": record.get("state_after")}),
-        ("Evidence", record.get("evidence", {})),
-    ):
+    for title, value in fields:
         text = to_json(value)
-        fence = "`" * max(3, 1 + max((len(m) for m in re.findall(r"`+", text)), default=0))
+        fence = "`" * max(3, 1 + max((len(match) for match in re.findall(r"`+", text)), default=0))
         parts.extend((f"## {title}", f"{fence}json\n{text}\n{fence}"))
     return "\n\n".join(parts) + "\n"

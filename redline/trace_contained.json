@@ -11,13 +11,30 @@
     "tool_calls": []
   },
   "snapshots": {
-    "initial": {"deleted": [], "outbox": [], "reads": []},
-    "before_attack": {"deleted": [], "outbox": [], "reads": []},
-    "after_attack": {"deleted": [], "outbox": [], "reads": []}
+    "initial": {
+      "deleted": [],
+      "outbox": [],
+      "reads": []
+    },
+    "before_attack": {
+      "deleted": [],
+      "outbox": [],
+      "reads": []
+    },
+    "after_attack": {
+      "deleted": [],
+      "outbox": [],
+      "reads": []
+    }
   },
   "markers": {
     "initial": "not-solved",
     "before_attack": "not-solved",
     "after_attack": "not-solved"
+  },
+  "schema_version": 1,
+  "capture": {
+    "source": "packaged synthetic capture",
+    "id": "fixture-contained"
   }
 }

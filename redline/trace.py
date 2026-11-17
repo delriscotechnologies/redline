@@ -1,83 +1,56 @@
-"""Replay a locally captured trace through the standard validators."""
+from datetime import datetime
 
-import json
-from copy import deepcopy
-from pathlib import Path
-
-from .models import AgentResponse, ToolCall
+from .models import canonical, read_json
 
 PHASES = ("initial", "before_attack", "after_attack")
+CALL_STATUSES = {"requested", "blocked", "succeeded", "failed"}
 
 
-class TraceAdapter:
-    """Read-only adapter: no prompts are sent, no state is modified."""
+def validate_trace(trace, scenario):
+    if not isinstance(trace, dict):
+        raise ValueError("trace must be an object")
+    for name in ("target", "baseline_prompt", "attack_prompt"):
+        if trace.get(name) != getattr(scenario, name):
+            raise ValueError(f"trace {name} does not match scenario")
+    version = trace.get("schema_version", 1)
+    if type(version) is not int or version != 1:
+        raise ValueError("unsupported trace schema_version")
+    for phase in ("baseline", "attack"):
+        response = trace.get(phase)
+        if not isinstance(response, dict) or not isinstance(response.get("text", ""), str):
+            raise ValueError(f"trace {phase} must be a response object")
+        calls = response.get("tool_calls")
+        if calls is not None:
+            if not isinstance(calls, list):
+                raise ValueError("tool_calls must be a list or null")
+            for call in calls:
+                if (not isinstance(call, dict) or not isinstance(call.get("name"), str)
+                        or not call["name"].strip() or not isinstance(call.get("arguments", {}), dict)
+                        or not isinstance(call.get("status", "requested"), str)
+                        or call.get("status", "requested") not in CALL_STATUSES):
+                    raise ValueError("invalid tool call: expected name, object arguments and supported status")
+    for name in ("snapshots", "markers"):
+        values = trace.get(name, {})
+        if not isinstance(values, dict):
+            raise ValueError(f"{name} must be an object")
+        for phase in PHASES:
+            value = values.get(phase)
+            if value is not None and not isinstance(value, dict if name == "snapshots" else str):
+                raise ValueError(f"invalid {name}.{phase}")
+    capture = trace.get("capture", {})
+    if not isinstance(capture, dict) or capture.keys() - {"source", "id", "captured_at"}:
+        raise ValueError("capture supports source, id and captured_at")
+    for name, value in capture.items():
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"capture.{name} must be a nonempty string")
+    if "captured_at" in capture:
+        timestamp = datetime.fromisoformat(capture["captured_at"].replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            raise ValueError("capture timestamp must include a timezone")
+    canonical(trace)
 
-    name = "trace"
 
-    def __init__(self, data: dict) -> None:
-        try:
-            self.target = data["target"]
-            prompts = (data["baseline_prompt"], data["attack_prompt"])
-            responses = (data["baseline"], data["attack"])
-            snapshots = [data["snapshots"][phase] for phase in PHASES]
-            markers = [data["markers"][phase] for phase in PHASES]
-            for response in responses:
-                if (not isinstance(response, dict)
-                        or not isinstance(response.get("text"), str)
-                        or not isinstance(response.get("tool_calls"), list)):
-                    raise ValueError("trace response needs text and tool_calls")
-                for call in response["tool_calls"]:
-                    if (not isinstance(call, dict) or not isinstance(call.get("name"), str)
-                            or not isinstance(call.get("arguments", {}), dict)):
-                        raise ValueError("trace tool call needs name and object arguments")
-            if any(not isinstance(snapshot, dict) for snapshot in snapshots):
-                raise ValueError("trace snapshots must be objects")
-            if any(not isinstance(prompt, str) for prompt in prompts):
-                raise ValueError("trace prompts must be strings")
-            if not isinstance(self.target, str) or not self.target:
-                raise ValueError("trace target must be a nonempty string")
-            json.dumps(data, allow_nan=False)
-        except (KeyError, TypeError, IndexError) as exc:
-            raise ValueError(f"invalid trace: {exc}") from exc
-        self._prompts = prompts
-        self._responses = [
-            AgentResponse(
-                response["text"],
-                [ToolCall(call["name"], call.get("arguments", {})) for call in response["tool_calls"]],
-            )
-            for response in responses
-        ]
-        self._snapshots = snapshots
-        self._markers = markers
-        self._sent = 0
-        self._snap = 0
-        self._marker = 0
-
-    @classmethod
-    def from_file(cls, path) -> "TraceAdapter":
-        return cls(json.loads(Path(path).read_text(encoding="utf-8")))
-
-    @staticmethod
-    def _next(index: int, values: list, label: str):
-        if index >= len(values):
-            raise ValueError(f"trace has no remaining {label}")
-        return values[index]
-
-    def send(self, prompt: str) -> AgentResponse:
-        if self._sent >= len(self._responses):
-            raise ValueError("trace has no remaining responses")
-        if prompt != self._prompts[self._sent]:
-            raise ValueError("trace prompt does not match the scenario prompt")
-        response = self._responses[self._sent]
-        self._sent += 1
-        return response
-
-    def snapshot(self) -> dict:
-        value = deepcopy(self._next(self._snap, self._snapshots, "snapshots"))
-        self._snap += 1
-        return value
-
-    def platform_marker(self):
-        value = self._next(self._marker, self._markers, "markers")
-        self._marker += 1
-        return value
+def load_trace(path, scenario):
+    trace = read_json(path)
+    validate_trace(trace, scenario)
+    return trace
