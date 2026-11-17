@@ -28,28 +28,15 @@ py -3 -m venv .venv
 python -m pip install .
 ```
 
-## Try the demo
+## What you can do
 
-Keep the environment active. Run the following commands from the repository root:
-
-```text
-redline selftest
-redline run --mode vulnerable
-redline run --mode contained
-```
-
-The runs print `Confirmed` and `No breach observed`, respectively, with a unique `run_id` for each. Replace `VULNERABLE_RUN_ID` and `CONTAINED_RUN_ID` below with those IDs:
-
-```text
-redline report --run VULNERABLE_RUN_ID
-redline compare --before VULNERABLE_RUN_ID --after CONTAINED_RUN_ID
-```
-
-Runs are saved as `evidence/RUN_ID.json`, relative to the current directory. To use another directory, add `--store PATH_TO_STORE` to each `run`, `report` and `compare` command, replacing `PATH_TO_STORE` with that directory. Reports default to Markdown; add `--format json` for JSON.
+- Evaluate captured tool calls, state changes and platform markers against a scenario's required evidence.
+- Save evaluations and generate verified reports in Markdown or JSON.
+- Compare evaluations for the same scenario and policy, and browse a catalog of reference mechanisms.
 
 ## Evaluate a capture
 
-From the repository root, import the bundled example:
+Keep the environment active. From the repository root, evaluate the bundled capture:
 
 ```text
 redline run --scenario redline/trace_scenario.json --trace redline/trace_vulnerable.json --fail-on confirmed inconclusive
@@ -70,6 +57,15 @@ This command saves the run and intentionally exits **1** because `confirmed` is 
 
 For your own authorized assessment, replace the two fixture paths with your scenario and capture files. Use `adapter: "trace"` in the scenario and omit `--mode`. The capture's target and prompts must match the scenario exactly.
 
+Runs are saved as `evidence/RUN_ID.json`, relative to the current directory. Replace `RUN_ID` with the printed ID to export a report. Replace `BEFORE_RUN_ID` and `AFTER_RUN_ID` with IDs from two evaluations of the same scenario to compare them:
+
+```text
+redline report --run RUN_ID --format json
+redline compare --before BEFORE_RUN_ID --after AFTER_RUN_ID
+```
+
+Reports default to Markdown. To use another store, add `--store PATH_TO_STORE` to each `run`, `report` and `compare` command, replacing `PATH_TO_STORE` with that directory.
+
 | Verdict | Meaning |
 | --- | --- |
 | Confirmed | All required validators confirmed their expected evidence. |
@@ -82,7 +78,7 @@ See the [technical reference](docs/reference.md) for scenario and capture format
 ## Scope and limits
 
 - **Offline evaluation.** `trace` reads local JSON; it does not replay actions. Neither adapter contacts a model or remote target, or executes captured commands. `target` is a binding identifier.
-- **Synthetic demo.** `mock` simulates one fixed deletion instruction in memory. Only excessive agency has bundled scenarios; the catalog's four mechanisms are references, not four executable assessments.
+- **Bundled coverage.** Only excessive agency has bundled scenarios. The catalog's four mechanisms are references, not four executable assessments; the built-in `mock` adapter simulates one fixed instruction in memory.
 - **Capture trust.** Imported captures are operator-supplied. Hashes and verdict recomputation check record consistency, not authenticity, real-world events or causation. Reports retain captured content; review it before sharing.
 - **Result interpretation.** Confirmation is limited to the scenario's required evidence level; reported execution need not establish an effect. A negative result or refusal does not prove security. `compare` checks evaluations for one pair, not all trace differences or statistical effectiveness.
 - **Operational requirements.** JSON input files and saved records are each limited to 8 MiB; the combined record must also fit. Storage needs a writable filesystem with hard links. Comparisons require the same scenario digest and evaluation policy. See the reference for version and legacy-record rules.

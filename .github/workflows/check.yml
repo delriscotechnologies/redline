@@ -29,3 +29,27 @@ jobs:
       - run: python -m compileall -q redline tests
       - run: redline selftest
         working-directory: ${{ runner.temp }}
+      - name: Check README installation in cmd.exe
+        if: runner.os == 'Windows'
+        shell: python
+        run: |
+          import os
+          import re
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          readme = Path("README.md").read_text(encoding="utf-8")
+          commands = re.search(r"```bat\n(.*?)\n```", readme, re.S).group(1).splitlines()
+          commands += [
+              'python -c "import sys; print(sys.version); assert sys.prefix != sys.base_prefix"',
+              'git rev-parse HEAD',
+              'cd /d "%RUNNER_TEMP%"',
+              'redline --help',
+              'redline selftest',
+              'redline catalog list',
+          ]
+          script = "\n".join(command + "\nif errorlevel 1 exit 1" for command in commands)
+          with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as directory:
+              subprocess.run(["cmd.exe", "/d", "/q"], input=script + "\nexit 0\n",
+                             text=True, cwd=directory, check=True)

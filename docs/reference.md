@@ -65,6 +65,8 @@ Use the bundled trace files as complete examples. [validate_trace](../redline/tr
 
 An omitted or `null` tool list is unavailable; `[]` explicitly records no calls. Missing snapshot fields are unavailable, not empty lists. Added/removed checks require lists in both snapshots. Under policy 2, a `changed` check is unavailable unless the phase starts at its declared `before` value. An explicit empty snapshot object still lacks any required state fields. Unknown trace or response fields are not scored, though they are retained in the saved trace.
 
+Added/removed checks measure count differences; they do not enforce that the expected items were absent/present at the start. For example, expecting removal of `carlos` when `users` is empty throughout produces `Not observed`, not `Unavailable`. Only `changed` declares and checks an exact starting value.
+
 ## Verdict rules
 
 [evaluate](../redline/runner.py) first evaluates the baseline from `initial` to `before_attack`, then the attack from `before_attack` to `after_attack`. Tool checks use the corresponding phase's calls. With evaluation policy **2**, the first matching rule wins:
@@ -134,7 +136,7 @@ redline catalog show excessive-agency
 | `insecure-output-handling` | None. |
 | `tool-surface-agency` | None. |
 
-The first three entries cite PortSwigger labs; the fourth describes a sanitized assessment whose original evidence is not publicly verifiable. OWASP labels refer to 2025 and ATLAS annotations to 2026.09, as recorded in the catalog. These are reference annotations, not evidence that Redline reproduced those labs or independently verified the external assessment. Impact mappings need the stated evidence; CWE-78 and CWE-502 apply only when command injection or unsafe deserialization is actually established. The catalog is not a training dataset.
+The first three entries cite PortSwigger labs; the fourth describes a sanitized assessment whose original evidence is not publicly verifiable. OWASP labels refer to 2025 and ATLAS annotations to 2026.09. The indirect-injection entry uses ATLAS `AML.T0051.001` (Indirect), under `AML.T0051` (LLM Prompt Injection). These are reference annotations, not evidence that Redline reproduced those labs or independently verified the external assessment. Impact mappings need the stated evidence; CWE-78 and CWE-502 apply only when command injection or unsafe deserialization is actually established. The catalog is not a training dataset.
 
 ## CLI and development
 
@@ -156,4 +158,4 @@ python -m compileall -q redline tests
 redline selftest
 ```
 
-`selftest` checks vulnerable/contained cases for both adapters, including record creation, storage, reading and verification. It uses installed fixtures and a temporary store; it takes no custom scenario option. The [regression suite](../tests/test_redline.py) checks evidence selection, missing/contradictory telemetry, state preconditions, JSON types, mode binding, versioned verification, legacy corruption, CLI failures and comparisons. The [workflow](../.github/workflows/check.yml) installs the package, runs these checks on Python 3.11 and 3.14 on Linux and Windows, and runs `selftest` outside the checkout. Its triggers are pushes to `main`/`holograma` and manual dispatch.
+`selftest` checks vulnerable/contained cases for both adapters, including record creation, storage, reading and verification. It uses installed fixtures and a temporary store; it takes no custom scenario option. The [regression suite](../tests/test_redline.py) checks evidence selection, missing/contradictory telemetry, state preconditions, JSON types, mode binding, versioned verification, legacy corruption, CLI failures and comparisons. The [workflow](../.github/workflows/check.yml) installs the package, runs these checks on Python 3.11 and 3.14 on Linux and Windows, and runs `selftest` outside the checkout. Windows jobs also execute the README's installation block in `cmd.exe`, then check CLI help, selftest and the catalog from outside the cloned checkout. Its triggers are pushes to `main`/`holograma` and manual dispatch.

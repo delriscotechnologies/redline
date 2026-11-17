@@ -46,7 +46,7 @@
     ],
     "mappings": {
       "owasp-llm": "LLM01:2025",
-      "atlas": "AML.T0051 (ATLAS 2026.09); an impact mapping requires separate evidence."
+      "atlas": "AML.T0051.001 (Indirect, under AML.T0051 LLM Prompt Injection; ATLAS 2026.09); an impact mapping requires separate evidence."
     },
     "remediation": "Treat retrieved content as untrusted data and enforce tool permissions independently.",
     "failure_modes": [
