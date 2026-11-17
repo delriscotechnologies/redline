@@ -49,7 +49,9 @@ The fixtures are synthetic examples. Supply your own scenario and capture to eva
 | Confirmed | Every required validator matched at its recorded evidence level. |
 | Attempt observed | A matching request exists without confirmed execution/effect. Blocked or failed calls remain attempts. |
 | No breach observed | Required observations were available, but the expected signal was not observed. |
-| Inconclusive | Baseline contamination, missing required evidence or partially matching confirmation evidence. |
+| Inconclusive | A confirmed baseline signal, missing prerequisites, partial confirmation or contradictory observations. |
+
+A blocked baseline request alone does not invalidate a later observed effect. If all matching calls are blocked/failed but effect evidence matches, the result is inconclusive. A successful matching call resolves that specific conflict; it does not prove which call caused an effect.
 
 A confirmed execution does not automatically confirm a downstream effect. A negative observation does not establish security, and a textual refusal is not proof of enforcement.
 
@@ -61,7 +63,7 @@ Exit codes: `0` for a completed evaluation without a selected failure verdict; `
 
 - `validators` selects observations. `required_validators` selects those necessary to confirm; when omitted, all selected validators are required.
 - `tool_trace` matches the tool name and a type-sensitive subset of expected `args`. Call `status` is `requested` (also the default), `blocked`, `failed`, or `succeeded`. Only the last confirms reported execution.
-- `state` compares three snapshots: `initial`, `before_attack`, and `after_attack`. Missing fields are unavailable evidence, never implicitly empty lists.
+- `state` compares three snapshots: `initial`, `before_attack`, and `after_attack`. Missing fields are unavailable evidence, never implicitly empty lists. A `changed` check also requires its declared starting value; otherwise its precondition is unavailable.
 - `platform` requires an observable string-marker transition. Null/missing observations or an already-satisfied marker are unavailable for confirmation.
 
 State expectations support additions/removals with multiplicity and exact before/after changes, including nested JSON values:
@@ -86,7 +88,7 @@ redline report --run RUN_ID --format json
 redline report --run OLD_RUN_ID --ledger evidence/runs.jsonl
 ```
 
-New reports are always verified: hashes are checked and the evaluator recomputes the verdict using the embedded scenario and trace. Records include adapter, demo mode when applicable, capture metadata, UTC recording time and tool version.
+New reports are always verified: hashes are checked and the evaluator recomputes the verdict using the embedded scenario, trace and evaluation policy. New runs use policy version 2; version 1 records retain their original policy when verified. Synthetic traces must also match the declared mock mode. Records include adapter, demo mode when applicable, capture metadata, UTC recording time and tool version.
 
 Imported captures are labeled **operator-supplied**. Hashes detect changes relative to a saved digest; they do not authenticate the capture, prove an event happened or prevent someone from fabricating a new self-consistent record. Execution status must come from an appropriate backend capture, not the model's narrative.
 
@@ -94,7 +96,7 @@ Each record is published atomically without overwriting another run, using a tem
 
 Inputs, legacy ledgers and saved records are limited to 8 MiB each. Reports retain captured content: review it before publishing. The default `evidence/` directory is ignored by Git.
 
-`compare` verifies both records and requires an identical scenario digest. It shows changed observations, not a statistical success rate or a claim that a defense is universally effective.
+`compare` verifies both records and requires an identical scenario digest and evaluation policy version. It shows changed observations, not a statistical success rate or a claim that a defense is universally effective.
 
 ## Catalog
 
@@ -112,7 +114,7 @@ python -m unittest discover -s tests -v
 redline selftest
 ```
 
-The regression suite covers evidence levels, missing telemetry, state changes, JSON types, capture binding, integrity, storage, legacy corruption, CLI exit codes and comparisons. GitHub Actions checks Python 3.11 and 3.14 on Linux and Windows.
+`selftest` performs four installed-fixture checks, each including storage and verification. The regression suite covers evidence levels, missing telemetry, state preconditions, contradictory observations, JSON types, mode binding, versioned verification, legacy corruption, CLI exit codes and comparisons. GitHub Actions checks Python 3.11 and 3.14 on Linux and Windows.
 
 ## License
 

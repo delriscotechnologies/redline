@@ -3,7 +3,7 @@ from collections import Counter
 from .models import canonical
 
 
-def _state(operations, before, after):
+def _state(operations, before, after, version):
     if not isinstance(before, dict) or not isinstance(after, dict):
         return "Unavailable", "state snapshots unavailable"
     checks, missing = [], []
@@ -14,6 +14,9 @@ def _state(operations, before, after):
                 continue
             left, right = before[key], after[key]
             if operation == "changed":
+                if version == 2 and canonical(left) != canonical(expected["before"]):
+                    missing.append(key)
+                    continue
                 checks.append(canonical(left) == canonical(expected["before"])
                               and canonical(right) == canonical(expected["after"]))
             elif not isinstance(left, list) or not isinstance(right, list):
@@ -23,16 +26,17 @@ def _state(operations, before, after):
                 delta = new - old if operation == "added" else old - new
                 checks.append(not (Counter(map(canonical, expected)) - delta))
     if missing:
-        return "Unavailable", f"missing or unusable state fields: {sorted(set(missing))}"
+        label = "missing or unusable state fields" if version == 1 else "unavailable state fields or starting conditions"
+        return "Unavailable", f"{label}: {sorted(set(missing))}"
     return ("Confirmed" if all(checks) else "Not observed"), "all requested state transitions checked"
 
 
-def run_validators(scenario, response, before, after, marker_before, marker_after):
+def run_validators(scenario, response, before, after, marker_before, marker_after, *, version=2):
     results = []
     for name in scenario.validators:
         level = "effect"
         if name == "state":
-            outcome, detail = _state(scenario.operations, before, after)
+            outcome, detail = _state(scenario.operations, before, after, version)
         elif name == "platform":
             if marker_before is None or marker_after is None:
                 outcome, detail = "Unavailable", "marker observation unavailable"

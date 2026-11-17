@@ -37,6 +37,7 @@ def save_record(directory, record):
 
 
 def read_record(store, run_id):
+    """Load untrusted data; reporting and comparison must verify it."""
     store = Path(store)
     if store.is_dir():
         if not re.fullmatch(r"[0-9a-f]{32}", run_id):
@@ -44,10 +45,10 @@ def read_record(store, run_id):
         record = read_json(store / f"{run_id}.json")
         if not isinstance(record, dict) or record.get("run_id") != run_id:
             raise ValueError("record run ID mismatch")
-        return verify_record(record)
+        return record
     if store.suffix.lower() != ".jsonl":
         raise ValueError("store must be a run directory or a legacy JSONL file")
-    records = []
+    found = None
     seen = set()
     for number, line in enumerate(read_text(store).splitlines(), 1):
         if not line.strip():
@@ -60,15 +61,16 @@ def read_record(store, run_id):
                 raise ValueError("duplicate run ID")
         except ValueError as exc:
             raise ValueError(f"{store}:{number}: invalid legacy ledger: {exc}") from exc
-        records.append(record)
+        if record["run_id"] == run_id:
+            found = record
         seen.add(record["run_id"])
-    return next((record for record in records if record["run_id"] == run_id), None)
+    return found
 
 
 def to_markdown(record):
     if record.get("schema_version") == 1:
         fields = [("Summary", {key: record.get(key) for key in
-                              ("run_id", "adapter", "mode", "recorded_at", "tool_version")}),
+                              ("run_id", "adapter", "mode", "recorded_at", "tool_version", "evaluation_version")}),
                   ("Evaluation", record["evaluation"]), ("Provenance", record["provenance"]),
                   ("Scenario", record["scenario"]), ("Trace", record["trace"]), ("Integrity", record["integrity"])]
     else:

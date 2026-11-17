@@ -5,7 +5,7 @@ from .models import MOCK_TARGET
 
 
 def make_trace(scenario, mode):
-    if mode not in {"vulnerable", "contained"}:
+    if mode not in ("vulnerable", "contained"):
         raise ValueError("mock mode must be vulnerable or contained")
     world = {"deleted": [], "outbox": [], "reads": []}
     snapshots, markers, responses = {"initial": deepcopy(world)}, {"initial": "not-solved"}, []

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 
 from redline.catalog import get_technique, list_techniques
@@ -14,6 +14,12 @@ from redline.models import MAX_BYTES, canonical, digest, load_scenario, parse_js
 from redline.report import read_record, save_record, to_markdown
 from redline.runner import compare_records, evaluate, make_record, verify_record
 from redline.trace import validate_trace
+
+
+def rehash(record):
+    record.pop("integrity", None)
+    record["integrity"] = {"sha256": digest(record)}
+    return record
 
 
 class EvaluationTests(unittest.TestCase):
@@ -168,6 +174,27 @@ class EvaluationTests(unittest.TestCase):
         trace["attack"]["tool_calls"].extend(self.hit["attack"]["tool_calls"])
         self.assertEqual(self.result(trace)["status"], "Confirmed")
 
+    def test_version_one_records_keep_the_original_policy(self):
+        scenario = replace(self.scenario, adapter="trace")
+        baseline_attempt = deepcopy(self.hit)
+        baseline_attempt["baseline"]["tool_calls"] = self.call("blocked")["attack"]["tool_calls"]
+        conflict = deepcopy(self.hit)
+        conflict["attack"]["tool_calls"][0]["status"] = "blocked"
+        changed = replace(scenario, expect={"state": {
+            "changed": {"config": {"before": False, "after": True}}}},
+            validators=["state"], required_validators=None)
+        dirty = deepcopy(self.clean)
+        dirty["snapshots"] = dict.fromkeys(("initial", "before_attack", "after_attack"), {"config": True})
+        for current, trace, expected in ((scenario, baseline_attempt, "Inconclusive"),
+                                         (scenario, conflict, "Confirmed"),
+                                         (changed, dirty, "No breach observed")):
+            with self.subTest(expected=expected):
+                record = make_record(current, trace, adapter="trace")
+                record["evaluation_version"] = 1
+                record["evaluation"] = evaluate(current, trace, version=1)
+                rehash(record)
+                self.assertEqual(verify_record(record)["evaluation"]["status"], expected)
+
 
 class RecordTests(unittest.TestCase):
     def setUp(self):
@@ -192,16 +219,14 @@ class RecordTests(unittest.TestCase):
     def test_rehashed_false_verdict_rejected(self):
         bad = deepcopy(self.record)
         bad["evaluation"]["status"] = "No breach observed"
-        del bad["integrity"]
-        bad["integrity"] = {"sha256": digest(bad)}
+        rehash(bad)
         with self.assertRaises(ValueError):
             verify_record(bad)
 
     def test_rehashed_false_provenance_rejected(self):
         bad = deepcopy(self.record)
         bad["provenance"]["kind"] = "trusted-backend"
-        del bad["integrity"]
-        bad["integrity"] = {"sha256": digest(bad)}
+        rehash(bad)
         with self.assertRaises(ValueError):
             verify_record(bad)
 
@@ -257,14 +282,22 @@ class RecordTests(unittest.TestCase):
     def test_rehashed_mock_mode_change_rejected(self):
         bad = deepcopy(self.record)
         bad["mode"] = "contained"
-        del bad["integrity"]
-        bad["integrity"] = {"sha256": digest(bad)}
+        rehash(bad)
         with self.assertRaises(ValueError):
             verify_record(bad)
 
     def test_record_builder_rejects_invalid_trace(self):
         with self.assertRaises(ValueError):
             make_record(self.scenario, None, adapter="mock", mode="vulnerable")
+
+    def test_comparison_rejects_different_evaluation_policies(self):
+        old = deepcopy(self.record)
+        old["evaluation_version"] = 1
+        old["evaluation"] = evaluate(self.scenario, old["trace"], version=1)
+        rehash(old)
+        verify_record(old)
+        with self.assertRaisesRegex(ValueError, "evaluation version"):
+            compare_records(old, self.record)
 
 
 class CLITests(unittest.TestCase):

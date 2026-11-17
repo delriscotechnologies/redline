@@ -1,7 +1,5 @@
 import argparse
 import sys
-from copy import deepcopy
-from dataclasses import replace
 from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,7 +8,7 @@ from .catalog import get_technique, list_techniques
 from .mock import make_trace
 from .models import load_scenario, parse_json
 from .report import read_record, save_record, to_json, to_markdown
-from .runner import compare_records, evaluate, make_record, verify_record
+from .runner import compare_records, make_record, verify_record
 from .trace import load_trace
 
 FAIL_ON = {"confirmed": "Confirmed", "attempt": "Attempt observed", "inconclusive": "Inconclusive"}
@@ -29,12 +27,12 @@ def build_parser():
     run.add_argument("--mode", choices=("vulnerable", "contained"), help="mock demo only")
     run.add_argument("--store", default="evidence")
     run.add_argument("--fail-on", nargs="+", choices=(*FAIL_ON, "none"), default=["none"])
-    commands.add_parser("selftest", help="check the packaged demo and evaluator regressions")
+    commands.add_parser("selftest", help="check installed fixtures, storage and verification")
     report = commands.add_parser("report")
     report.add_argument("--run", required=True)
     report.add_argument("--store", "--ledger", default="evidence")
     report.add_argument("--format", choices=("markdown", "json"), default="markdown")
-    report.add_argument("--verify", action="store_true", help="require a verifiable v1 record; new records are always verified")
+    report.add_argument("--verify", action="store_true", help="require a verifiable record; new records are always verified")
     compare = commands.add_parser("compare")
     compare.add_argument("--before", required=True)
     compare.add_argument("--after", required=True)
@@ -43,40 +41,20 @@ def build_parser():
 
 
 def selftest():
-    scenario = load_scenario()
-    vulnerable, contained = make_trace(scenario, "vulnerable"), make_trace(scenario, "contained")
-    attempt = deepcopy(contained)
-    attempt["attack"]["tool_calls"] = [{"name": "delete_user", "arguments": {"username": "carlos"}}]
-    missing = deepcopy(contained)
-    missing["snapshots"]["after_attack"] = {}
-    state_only = replace(scenario, validators=["state"], required_validators=["state"])
-    typed = make_trace(scenario, "contained")
-    typed["snapshots"]["after_attack"]["deleted"] = [True]
-    typed_scenario = replace(state_only, expect={"state": {"added": {"deleted": [1]}}})
-    baseline = replace(scenario, baseline_prompt=scenario.attack_prompt, attack_prompt="Summarize invoice 17.")
-    cases = [
-        ("mock vulnerable", scenario, vulnerable, "Confirmed"),
-        ("mock contained", scenario, contained, "No breach observed"),
-        ("request is not an effect", scenario, attempt, "Attempt observed"),
-        ("missing state is inconclusive", scenario, missing, "Inconclusive"),
-        ("booleans are not numbers", typed_scenario, typed, "No breach observed"),
-        ("baseline signal is inconclusive", baseline, make_trace(baseline, "vulnerable"), "Inconclusive"),
-    ]
-    for mode, expected in (("vulnerable", "Confirmed"), ("contained", "No breach observed")):
-        trace = parse_json(files("redline").joinpath(f"trace_{mode}.json").read_text(encoding="utf-8"))
-        cases.append((f"captured fixture {mode}", load_scenario(str(files("redline").joinpath("trace_scenario.json"))),
-                      trace, expected))
     ok = True
-    for name, current, trace, expected in cases:
-        passed = evaluate(current, trace)["status"] == expected
-        print(f"[{'PASS' if passed else 'FAIL'}] {name}")
-        ok = ok and passed
-    record = make_record(scenario, vulnerable, adapter="mock", mode="vulnerable")
     with TemporaryDirectory() as directory:
-        save_record(directory, record)
-        passed = read_record(directory, record["run_id"]) == record
-        print(f"[{'PASS' if passed else 'FAIL'}] stored record verifies")
-        ok = ok and passed
+        for adapter in ("mock", "trace"):
+            path = str(files("redline").joinpath("trace_scenario.json")) if adapter == "trace" else None
+            scenario = load_scenario(path)
+            for mode, expected in (("vulnerable", "Confirmed"), ("contained", "No breach observed")):
+                trace = (make_trace(scenario, mode) if adapter == "mock" else
+                         parse_json(files("redline").joinpath(f"trace_{mode}.json").read_text(encoding="utf-8")))
+                record = make_record(scenario, trace, adapter=adapter, mode=mode if adapter == "mock" else None)
+                save_record(directory, record)
+                stored = verify_record(read_record(directory, record["run_id"]))
+                passed = stored == record and stored["evaluation"]["status"] == expected
+                print(f"[{'PASS' if passed else 'FAIL'}] {adapter} {mode}: stored record verifies")
+                ok = ok and passed
     return 0 if ok else 1
 
 
