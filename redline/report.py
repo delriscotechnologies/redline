@@ -75,7 +75,7 @@ def to_markdown(record):
                   ("Scenario", record["scenario"]), ("Trace", record["trace"]), ("Integrity", record["integrity"])]
     else:
         fields = [("Legacy record (unverified)", record)]
-    parts = ["# Redline report"]
+    parts = ["# redline report"]
     for title, value in fields:
         text = to_json(value)
         fence = "`" * max(3, 1 + max((len(match) for match in re.findall(r"`+", text)), default=0))
