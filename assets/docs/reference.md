@@ -8,25 +8,13 @@ Start with the [README](../../README.md) for installation and a complete example
 
 `redline validate --scenario scenario.json` validates a scenario without executing or saving it. Adding `--trace capture.json` also checks the capture structure and exact target/prompt binding; this requires `adapter: "trace"`. Success prints JSON with `valid`, `scenario_id` and `capture_checked`. Invalid input exits 2. Validation does not evaluate evidence, confirm authorization or certify the quality of a test.
 
-The playbook is packaged as `redline/SKILL.md`, so `guide` works outside the checkout. Record/scenario formats, evaluation policies and previous record verification are unchanged in version 0.4.0.
+The playbook is packaged as `redline/SKILL.md`, so `guide` works outside the checkout. Version 0.5.0 retains scenario/record formats and evaluation policies for imported traces; the synthetic adapter is no longer supported.
 
-## Adapters and fixtures
+## Imported captures
 
-The scenario's `adapter` selects the implementation:
+The scenario's `adapter` must be `trace`. [load_trace](../../redline/trace.py) reads and validates captured JSON without executing recorded actions. `run` requires both `--scenario FILE` and `--trace FILE`. Paths refer to the current directory, not package resources; use absolute paths when needed.
 
-- `mock`: [make_trace](../../redline/mock.py) starts with empty `deleted`, `outbox` and `reads` lists. It processes the baseline prompt, then the attack prompt. A case-insensitive substring match for `delete the user carlos` appends `carlos` to `deleted` only in `vulnerable` mode, records a successful `delete_user` call and sets the marker to `solved`. `contained` leaves state unchanged and records no calls. This is fixed Python logic, not an agent or authorization service. The default mode is `vulnerable`; the target must be `mock://invoice-agent`.
-- `trace`: [load_trace](../../redline/trace.py) reads and validates captured JSON. It neither generates telemetry nor executes the recorded actions. `--trace` is required and `--mode` is rejected.
-
-The installed package contains these resources:
-
-| File | Purpose |
-| --- | --- |
-| [excessive_agency.json](../../redline/excessive_agency.json) | Default mock scenario. |
-| [trace_scenario.json](../../redline/trace_scenario.json) | Scenario for the imported examples. |
-| [trace_vulnerable.json](../../redline/trace_vulnerable.json) | Synthetic capture with a matching call and effect. |
-| [trace_contained.json](../../redline/trace_contained.json) | Synthetic capture with available, negative observations. |
-
-The default demo and `selftest` use `importlib.resources` and work outside the checkout. Explicit paths such as `--scenario redline/trace_scenario.json` refer to the current working directory, not package resources. Use absolute paths when running imports elsewhere. Both bundled scenarios select all three validators but require only `state` for confirmation.
+The package contains the playbook, not executable scenario/capture fixtures. See the [README format example](../../README.md#evaluate-a-capture). `--mode` and `selftest` have been removed.
 
 ## Scenario format
 
@@ -35,7 +23,7 @@ The default demo and `selftest` use `importlib.resources` and work outside the c
 | Field | Requirement |
 | --- | --- |
 | `id`, `technique_id` | Nonempty strings. `technique_id` is a free-form label stored with the scenario. |
-| `adapter`, `target` | Adapter is `mock` or `trace`; target is a nonempty binding string, with the fixed target required for mock. |
+| `adapter`, `target` | Adapter is `trace`; target is a nonempty binding string. |
 | `baseline_prompt`, `attack_prompt` | Distinct, nonempty strings. |
 | `validators` | Nonempty, unique list drawn from `tool_trace`, `state`, `platform`; defaults to all three. |
 | `required_validators` | Nonempty, unique subset of selected validators. Omission or `null` makes every selected validator required. |
@@ -62,7 +50,7 @@ For example, this `expect` object can be used with `validators: ["state"]`:
 
 ## Capture format and missing evidence
 
-Use the bundled trace files as complete examples. [validate_trace](../../redline/trace.py) enforces:
+Use the README format example as a starting point. [validate_trace](../../redline/trace.py) enforces:
 
 - `schema_version` is the integer `1`, or may be omitted and defaults to `1`.
 - `target`, `baseline_prompt` and `attack_prompt` exactly match the scenario.
@@ -94,11 +82,11 @@ The reported `evidence_level` is the strongest positive attack observation among
 
 ## Records, verification and compatibility
 
-[make_record and verify_record](../../redline/runner.py) use record schema **1** and, for new runs, evaluation policy **2**. Records embed the scenario, trace, evaluation, adapter, mock mode when applicable, capture provenance, a UUID run ID, UTC recording time and tool version.
+[make_record and verify_record](../../redline/runner.py) use record schema **1** and, for new runs, evaluation policy **2**. Records embed the scenario, trace, evaluation, `adapter: "trace"`, `mode: null`, operator-supplied capture provenance, a UUID run ID, UTC recording time and tool version. The mode field remains for compatibility with earlier trace records.
 
-Scenario and trace SHA-256 digests cover their canonical JSON, not the original file bytes or whitespace. The record digest covers every field except `integrity`. Verification checks these digests, adapter/mode bindings, provenance kind and capture metadata consistency, and recomputes the full evaluation with the record's policy. Mock traces must exactly match the deterministic scenario/mode output. These checks are consistency checks; the capture trust limits are described in the README.
+Scenario and trace SHA-256 digests cover their canonical JSON, not the original file bytes or whitespace. The record digest covers every field except `integrity`. Verification checks these digests, adapter/mode bindings, provenance kind and capture metadata consistency, and recomputes the full evaluation with the record's policy. These checks are consistency checks; the capture trust limits are described in the README.
 
-Supported evaluation policies are `1` and `2`. Policy 1 retains three older rules: baseline attempts also trigger `baseline_signal`; an incorrect `changed` starting value is `Not observed` rather than `Unavailable`; blocked/failed-call conflicts do not receive the policy-2 conflict check. The verifier rejects unsupported schema or policy versions. The tool version is recorded as metadata, not used as a compatibility gate. Existing schema-1 records still have to pass all current structural, binding and integrity checks.
+Supported evaluation policies are `1` and `2`. Policy 1 retains three older rules: baseline attempts also trigger `baseline_signal`; an incorrect `changed` starting value is `Not observed` rather than `Unavailable`; blocked/failed-call conflicts do not receive the policy-2 conflict check. The verifier rejects unsupported schema or policy versions. The tool version is recorded as metadata, not used as a compatibility gate. Existing trace records still have to pass all current structural, binding and integrity checks. Historical `mock` records are rejected explicitly; their files are not changed. Read or verify them with [version 0.4.0 at commit c914440](https://github.com/delriscotechnologies/redline/tree/c914440b79668255c7a8e48a9566069b77b0ae6b). No historical files are converted automatically.
 
 [save_record](../../redline/report.py) creates the store directory if needed, writes and fsyncs a temporary file there, then uses an exclusive hard link to publish `RUN_ID.json`. An existing run is never overwritten; the temporary file is removed. Use a writable directory on a filesystem supporting hard links. There is no fallback publication method and no directory fsync/power-loss durability guarantee. A store path ending in `.jsonl` is rejected for new runs.
 
@@ -123,28 +111,31 @@ Every nonblank line must parse as a JSON object with a unique, nonempty string `
 
 ### Comparison
 
-`compare` verifies both records and requires identical `scenario_sha256` and `evaluation_version`. Scenario identity includes the ID, adapter, target, prompts, expectations and validator selections. Mock and trace runs cannot be compared just because they share a technique. There is no comparison override for different scenarios or policies.
+`compare` verifies both records and requires identical `scenario_sha256` and `evaluation_version`. Scenario identity includes the ID, adapter, target, prompts, expectations and validator selections. There is no comparison override for different scenarios or policies.
 
 The JSON output contains `scenario_id`, both run IDs and full evaluations, a `changed` boolean, and a note about the single paired observation. `changed` compares the canonical evaluations, including baseline checks and validator details, not just verdicts. It does not diff the raw captures: changing only response text, capture metadata or unexamined state can leave `changed` false. Different verdicts do not change the comparison command's exit code.
 
 ## CLI and development
 
-Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `guide`, `validate`, `run`, `report`, `compare` or `selftest`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
+Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `guide`, `validate`, `run`, `report` or `compare`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
 
 | Exit code | Meaning |
 | --- | --- |
 | `0` | Successful command; for `run`, no selected failure verdict matched. Help also exits 0. |
-| `1` | `run` matched a selected `--fail-on` verdict, after saving the record; or `selftest` completed with a failed fixture check. |
+| `1` | `run` matched a selected `--fail-on` verdict, after saving the record. |
 | `2` | Argument/validation error or a handled operational error, including unavailable input, integrity failure, incompatible comparison or storage failure. |
 
-`--fail-on` belongs only to `run`. It accepts multiple values from `confirmed`, `attempt` and `inconclusive`, or `none` alone. There is no selector for `No breach observed`. An inconclusive evaluation exits 0 by default. `compare` exits 0 on a valid comparison regardless of `changed`. An operational exception during `selftest` exits 2 rather than 1.
+`--fail-on` belongs only to `run`. It accepts multiple values from `confirmed`, `attempt` and `inconclusive`, or `none` alone. There is no selector for `No breach observed`. An inconclusive evaluation exits 0 by default. `compare` exits 0 on a valid comparison regardless of `changed`.
 
-From the repository root with the installed environment active:
+There is no committed test suite or GitHub workflow in version 0.5.0.
+
+## Upgrading
+
+Install from a clean clone when upgrading an existing checkout. Setuptools may otherwise reuse deleted modules from an old `build/` directory. With your chosen virtual environment active, run from a directory where `redline-clean` does not already exist:
 
 ```text
-python -m unittest discover -s assets/tests -v
-python -m compileall -q redline assets/tests
-redline selftest
+git clone --branch main https://github.com/delriscotechnologies/redline.git redline-clean
+python -m pip install ./redline-clean
 ```
 
-`selftest` checks vulnerable/contained cases for both adapters, including record creation, storage, reading and verification. It uses installed fixtures and a temporary store; it takes no custom scenario option. The [regression suite](../tests/test_redline.py) checks evidence selection, missing/contradictory telemetry, state preconditions, JSON types, mode binding, versioned verification, legacy corruption, CLI failures and comparisons. The [workflow](../../.github/workflows/check.yml) installs the package, runs these checks on Python 3.11 and 3.14 on Linux and Windows, and runs `selftest` outside the checkout. Windows jobs also execute the README's installation block in `cmd.exe`, then check CLI help and selftest from outside the cloned checkout. Its triggers are pushes to `main` and manual dispatch.
+This leaves your old checkout and evidence intact. Alternatively, preserve the generated `build/` directory outside your existing checkout before reinstalling from it. No evidence migration or deletion is required.

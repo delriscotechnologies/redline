@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 
 from . import __version__
 from .models import Scenario, canonical, digest
-from .mock import make_trace
 from .trace import validate_trace
 from .validators import run_validators
 
@@ -48,26 +47,21 @@ def evaluate(scenario, trace, *, version=EVALUATION_VERSION):
             "baseline": baseline, "validators": checks}
 
 
-def _binding(scenario, trace, adapter, mode):
-    if adapter != scenario.adapter:
-        raise ValueError("record adapter must match scenario")
-    if adapter == "mock":
-        if canonical(trace) != canonical(make_trace(scenario, mode)):
-            raise ValueError("mock trace does not match the scenario and mode")
-    elif adapter != "trace" or mode is not None:
-        raise ValueError("mode applies only to the mock demo")
+def _binding(scenario, adapter, mode):
+    if adapter != scenario.adapter or adapter != "trace" or mode is not None:
+        raise ValueError("only trace records without mode are supported; read old mock records with version 0.4.0")
 
 
 def make_record(scenario, trace, *, adapter, mode=None, source_name=None):
     evaluation = evaluate(scenario, trace)
-    _binding(scenario, trace, adapter, mode)
+    _binding(scenario, adapter, mode)
     scenario_data, trace_data = deepcopy(asdict(scenario)), deepcopy(trace)
     record = {
         "schema_version": 1, "evaluation_version": EVALUATION_VERSION, "run_id": uuid.uuid4().hex,
         "recorded_at": datetime.now(timezone.utc).isoformat(), "tool_version": __version__,
         "adapter": adapter, "mode": mode, "scenario": scenario_data, "trace": trace_data,
         "scenario_sha256": digest(scenario_data), "trace_sha256": digest(trace_data),
-        "provenance": {"kind": "synthetic" if adapter == "mock" else "operator-supplied",
+        "provenance": {"kind": "operator-supplied",
                        "source_name": source_name, "capture": deepcopy(trace_data.get("capture", {}))},
         "evaluation": evaluation,
     }
@@ -84,12 +78,11 @@ def verify_record(record):
     if record.get("integrity") != {"sha256": digest(payload)}:
         raise ValueError("record integrity mismatch")
     scenario = Scenario(**record["scenario"])
-    _binding(scenario, record["trace"], record["adapter"], record["mode"])
+    _binding(scenario, record["adapter"], record["mode"])
     provenance = record.get("provenance", {})
     if not isinstance(provenance, dict) or not isinstance(record.get("trace"), dict):
         raise ValueError("invalid record provenance or trace")
-    kind = "synthetic" if record["adapter"] == "mock" else "operator-supplied"
-    if (provenance.get("kind") != kind or provenance.get("capture") != record["trace"].get("capture", {})):
+    if (provenance.get("kind") != "operator-supplied" or provenance.get("capture") != record["trace"].get("capture", {})):
         raise ValueError("record provenance mismatch")
     if digest(record["scenario"]) != record["scenario_sha256"] or digest(record["trace"]) != record["trace_sha256"]:
         raise ValueError("scenario or trace digest mismatch")
