@@ -14,8 +14,12 @@ FAIL_ON = {"confirmed": "Confirmed", "attempt": "Attempt observed", "inconclusiv
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="redline", description="Offline evaluation of AI-agent evidence.")
+    parser = argparse.ArgumentParser(prog="redline", description="Guided AI-agent assessments and offline evidence evaluation.")
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("guide", help="print the assessment playbook for an evaluator agent")
+    validate = commands.add_parser("validate", help="check a scenario and optional capture without running or saving it")
+    validate.add_argument("--scenario", required=True)
+    validate.add_argument("--trace")
     run = commands.add_parser("run", help="evaluate a capture or run the synthetic demo")
     run.add_argument("--scenario")
     run.add_argument("--trace")
@@ -64,7 +68,16 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "selftest":
+        if args.command == "guide":
+            print(files("redline").joinpath("SKILL.md").read_text(encoding="utf-8"), end="")
+        elif args.command == "validate":
+            scenario = load_scenario(args.scenario)
+            if args.trace:
+                if scenario.adapter != "trace":
+                    raise ValueError("capture validation requires a trace scenario")
+                load_trace(args.trace, scenario)
+            print(to_json({"valid": True, "scenario_id": scenario.id, "capture_checked": bool(args.trace)}))
+        elif args.command == "selftest":
             return selftest()
         elif args.command == "run":
             if "none" in args.fail_on and len(args.fail_on) > 1:

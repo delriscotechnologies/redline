@@ -2,6 +2,14 @@
 
 Start with the [README](../../README.md) for installation and a complete example. Paths below are relative to the repository root unless stated otherwise; CLI commands assume the installed environment is active.
 
+## Evaluator-agent workflow
+
+`redline guide` prints the installed [assessment playbook](../../redline/SKILL.md), including instruction-boundary, tool-permission and data-boundary procedures. An external evaluator authors a plan, baseline, control and payload for the operator to try through the target's chat, then reviews returned observations. It writes those handoff files using its own tools, or presents labeled text blocks; `guide` itself only prints instructions. The playbook does not register an MCP server, call an LLM, send API requests or add an automatic judge. Text-only trials use a qualitative report with source/turn references, without inventing a CLI run ID; deterministic grading requires actual tool/state/platform evidence.
+
+`redline validate --scenario scenario.json` validates a scenario without executing or saving it. Adding `--trace capture.json` also checks the capture structure and exact target/prompt binding; this requires `adapter: "trace"`. Success prints JSON with `valid`, `scenario_id` and `capture_checked`. Invalid input exits 2. Validation does not evaluate evidence, confirm authorization or certify the quality of a test.
+
+The playbook is packaged as `redline/SKILL.md`, so `guide` works outside the checkout. Record/scenario formats, evaluation policies and previous record verification are unchanged in version 0.4.0.
+
 ## Adapters and fixtures
 
 The scenario's `adapter` selects the implementation:
@@ -121,7 +129,7 @@ The JSON output contains `scenario_id`, both run IDs and full evaluations, a `ch
 
 ## CLI and development
 
-Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `run`, `report`, `compare` or `selftest`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
+Use `redline --help` or `redline COMMAND --help` for options, replacing `COMMAND` with `guide`, `validate`, `run`, `report`, `compare` or `selftest`. `python -m redline` is an alternative entry point. `--store` is a subcommand option, not a global one.
 
 | Exit code | Meaning |
 | --- | --- |
