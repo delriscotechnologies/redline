@@ -6,7 +6,27 @@ redline gives an AI evaluator a playbook and a small CLI for manual assessments 
 
 ## Install
 
-Requires Git and Python 3.11+ with `venv` and pip. redline has no runtime dependencies; installation may download setuptools to build the package.
+### Skill: instructions only
+
+The skill lives in [`redline/SKILL.md`](redline/SKILL.md). In the **Codex chat**, ask the built-in installer:
+
+```text
+$skill-installer Install the skill at https://github.com/delriscotechnologies/redline/tree/main/redline
+```
+
+Then invoke it in that chat:
+
+```text
+$redline Help me prepare an authorized manual chat assessment. Ask for the target, legitimate task, policy and controlled surface before drafting a probe.
+```
+
+Alternatively, copy or link the existing `redline/` directory into a compatible agent's skill location. For a Codex project, the resulting path is `.agents/skills/redline/SKILL.md`. Keep one source of the instructions; a symlink can point to the existing directory. Codex detects installed skills automatically; restart it if the skill does not appear. See the [Agent Skills format](https://agentskills.io/specification) and [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills).
+
+Using the instructions-only workflow requires neither the Python package nor the `redline` command. Installing the skill does not install the CLI. Without skill support, open the playbook and paste its contents into the evaluator's chat.
+
+### Optional CLI: structured evidence
+
+For deterministic grading of captured tool/state/platform evidence, install the CLI separately. Requires Git and Python 3.11+ with `venv` and pip. There are no runtime dependencies; installation may download setuptools to build the package.
 
 Linux (Bash):
 
@@ -38,15 +58,15 @@ python -m pip install .
 
 ## Give an evaluator the playbook
 
-Keep the environment active and run:
+Activate the installed skill or give the evaluator the [playbook](redline/SKILL.md). If you installed the optional CLI, you can also print the same instructions:
 
 ```text
 redline guide
 ```
 
-Ask an agent with terminal access to read that output. Give it the authorized target, legitimate task, policy, controlled surface, available observations and request budget. The [playbook](redline/SKILL.md) guides it to author an assessment plan, baseline, benign control and exact payload, then wait for your observations and write a review. Without terminal access, paste the playbook into the evaluator's chat and ask for the same labeled text blocks.
+Give the evaluator the authorized target, legitimate task, policy, controlled surface, available observations and request budget. It authors an assessment plan, baseline, benign control and exact payload, waits for your observations and writes a review. Without file tools, it presents the same materials as labeled text blocks.
 
-For text-only chats, the evaluator preserves excerpts with source/turn references and writes a qualitative review. The CLI does not grade response text. Where tool/state/platform evidence is available, it also writes `scenario.json` and `capture.json`; validate these before evaluating them:
+Instructions-only assessments preserve actual observations and source/turn references for a qualitative review, including any tool evidence you provide. They do not receive a CLI verdict or run ID. The CLI also does not grade response text. When you choose the optional CLI and tool/state/platform evidence is available, the evaluator writes `scenario.json` and `capture.json`; validate these before evaluating them:
 
 ```text
 redline validate --scenario scenario.json
@@ -58,7 +78,7 @@ redline run --scenario scenario.json --trace capture.json --store evidence
 
 ## Evaluate a capture
 
-Keep the environment active. Save a scenario and its observations as JSON. For a format example, use this fictitious scenario as `scenario.json`:
+This section requires the optional CLI. Keep its environment active. Save a scenario and its observations as JSON. For a format example, use this fictitious scenario as `scenario.json`:
 
 ```json
 {
