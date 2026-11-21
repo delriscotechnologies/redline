@@ -3,7 +3,6 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-MOCK_TARGET = "mock://invoice-agent"
 VALIDATORS = ("tool_trace", "state", "platform")
 MAX_BYTES = 8 * 1024 * 1024
 
@@ -70,10 +69,8 @@ class Scenario:
         for key in ("id", "technique_id", "adapter", "target", "baseline_prompt", "attack_prompt"):
             if not isinstance(getattr(self, key), str) or not getattr(self, key).strip():
                 raise ValueError(f"{key} must be a nonempty string")
-        if self.adapter not in {"mock", "trace"}:
-            raise ValueError("adapter must be mock or trace")
-        if self.adapter == "mock" and self.target != MOCK_TARGET:
-            raise ValueError(f"mock target must be {MOCK_TARGET}")
+        if self.adapter != "trace":
+            raise ValueError("adapter must be trace; use version 0.4.0 to read old mock records")
         if self.baseline_prompt == self.attack_prompt:
             raise ValueError("baseline and attack prompts must differ")
         for label, names in (("validators", self.validators), ("required_validators", self.required)):
@@ -114,9 +111,8 @@ class Scenario:
         canonical(asdict(self))
 
 
-def load_scenario(path=None):
-    from importlib.resources import files
-    data = read_json(path) if path else parse_json(files("redline").joinpath("excessive_agency.json").read_text(encoding="utf-8"))
+def load_scenario(path):
+    data = read_json(path)
     if not isinstance(data, dict):
         raise ValueError("scenario must be an object")
     try:

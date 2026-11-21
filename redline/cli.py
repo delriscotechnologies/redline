@@ -2,10 +2,8 @@ import argparse
 import sys
 from importlib.resources import files
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
-from .mock import make_trace
-from .models import load_scenario, parse_json
+from .models import load_scenario
 from .report import read_record, save_record, to_json, to_markdown
 from .runner import compare_records, make_record, verify_record
 from .trace import load_trace
@@ -20,13 +18,11 @@ def build_parser():
     validate = commands.add_parser("validate", help="check a scenario and optional capture without running or saving it")
     validate.add_argument("--scenario", required=True)
     validate.add_argument("--trace")
-    run = commands.add_parser("run", help="evaluate a capture or run the synthetic demo")
-    run.add_argument("--scenario")
-    run.add_argument("--trace")
-    run.add_argument("--mode", choices=("vulnerable", "contained"), help="mock demo only")
+    run = commands.add_parser("run", help="evaluate a captured trace")
+    run.add_argument("--scenario", required=True)
+    run.add_argument("--trace", required=True)
     run.add_argument("--store", default="evidence")
     run.add_argument("--fail-on", nargs="+", choices=(*FAIL_ON, "none"), default=["none"])
-    commands.add_parser("selftest", help="check installed fixtures, storage and verification")
     report = commands.add_parser("report")
     report.add_argument("--run", required=True)
     report.add_argument("--store", "--ledger", default="evidence")
@@ -37,24 +33,6 @@ def build_parser():
     compare.add_argument("--after", required=True)
     compare.add_argument("--store", default="evidence")
     return parser
-
-
-def selftest():
-    ok = True
-    with TemporaryDirectory() as directory:
-        for adapter in ("mock", "trace"):
-            path = str(files("redline").joinpath("trace_scenario.json")) if adapter == "trace" else None
-            scenario = load_scenario(path)
-            for mode, expected in (("vulnerable", "Confirmed"), ("contained", "No breach observed")):
-                trace = (make_trace(scenario, mode) if adapter == "mock" else
-                         parse_json(files("redline").joinpath(f"trace_{mode}.json").read_text(encoding="utf-8")))
-                record = make_record(scenario, trace, adapter=adapter, mode=mode if adapter == "mock" else None)
-                save_record(directory, record)
-                stored = verify_record(read_record(directory, record["run_id"]))
-                passed = stored == record and stored["evaluation"]["status"] == expected
-                print(f"[{'PASS' if passed else 'FAIL'}] {adapter} {mode}: stored record verifies")
-                ok = ok and passed
-    return 0 if ok else 1
 
 
 def _record(store, run_id):
@@ -73,27 +51,14 @@ def main(argv=None):
         elif args.command == "validate":
             scenario = load_scenario(args.scenario)
             if args.trace:
-                if scenario.adapter != "trace":
-                    raise ValueError("capture validation requires a trace scenario")
                 load_trace(args.trace, scenario)
             print(to_json({"valid": True, "scenario_id": scenario.id, "capture_checked": bool(args.trace)}))
-        elif args.command == "selftest":
-            return selftest()
         elif args.command == "run":
             if "none" in args.fail_on and len(args.fail_on) > 1:
                 raise ValueError("--fail-on none cannot be combined with other verdicts")
             scenario = load_scenario(args.scenario)
-            if scenario.adapter == "trace":
-                if not args.trace or args.mode is not None:
-                    raise ValueError("trace evaluation requires --trace and does not accept --mode")
-                trace, mode = load_trace(args.trace, scenario), None
-            else:
-                if args.trace:
-                    raise ValueError("--trace requires a trace scenario")
-                mode = args.mode or "vulnerable"
-                trace = make_trace(scenario, mode)
-            record = make_record(scenario, trace, adapter=scenario.adapter, mode=mode,
-                                 source_name=Path(args.trace).name if args.trace else None)
+            trace = load_trace(args.trace, scenario)
+            record = make_record(scenario, trace, adapter="trace", source_name=Path(args.trace).name)
             save_record(args.store, record)
             summary = record["evaluation"]
             print(to_json({"run_id": record["run_id"], "status": summary["status"],
