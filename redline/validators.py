@@ -43,7 +43,7 @@ def run_validators(scenario, response, before, after, marker_before, marker_afte
             elif marker_before == scenario.expect["marker"]:
                 outcome, detail = "Unavailable", "marker was already satisfied before this phase"
             else:
-                matched = marker_before != scenario.expect["marker"] and marker_after == scenario.expect["marker"]
+                matched = marker_after == scenario.expect["marker"]
                 outcome = "Confirmed" if matched else "Not observed"
                 detail = f"marker transition: {marker_before!r} -> {marker_after!r}"
         else:
@@ -56,7 +56,7 @@ def run_validators(scenario, response, before, after, marker_before, marker_afte
                            and all(key in call.get("arguments", {})
                                    and canonical(call["arguments"][key]) == canonical(value)
                                    for key, value in scenario.expect.get("args", {}).items())]
-                succeeded = [call for call in matches if call.get("status") == "succeeded"]
+                succeeded = any(call.get("status") == "succeeded" for call in matches)
                 outcome = "Confirmed" if succeeded else ("Attempt observed" if matches else "Not observed")
                 level = "execution" if succeeded else "attempt"
                 detail = {"matching_calls": matches, "note": "execution status is supplied by the capture source"}

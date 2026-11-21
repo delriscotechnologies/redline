@@ -68,14 +68,16 @@ def read_record(store, run_id):
 
 
 def to_markdown(record):
+    parts = ["# redline report"]
     if record.get("schema_version") == 1:
+        result = record["evaluation"]
+        parts.append(f"**{result['status']}** · Evidence level `{result['evidence_level']}` · Reason `{result['reason']}`")
         fields = [("Summary", {key: record.get(key) for key in
                               ("run_id", "adapter", "mode", "recorded_at", "tool_version", "evaluation_version")}),
                   ("Evaluation", record["evaluation"]), ("Provenance", record["provenance"]),
                   ("Scenario", record["scenario"]), ("Trace", record["trace"]), ("Integrity", record["integrity"])]
     else:
         fields = [("Legacy record (unverified)", record)]
-    parts = ["# redline report"]
     for title, value in fields:
         text = to_json(value)
         fence = "`" * max(3, 1 + max((len(match) for match in re.findall(r"`+", text)), default=0))

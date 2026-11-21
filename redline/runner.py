@@ -23,13 +23,12 @@ def evaluate(scenario, trace, *, version=EVALUATION_VERSION):
     checks = run_validators(scenario, trace["attack"], snapshots.get("before_attack"),
                             snapshots.get("after_attack"), markers.get("before_attack"), markers.get("after_attack"), version=version)
     required = [v for v in checks if v["name"] in scenario.required]
-    baseline_required = [v for v in baseline if v["name"] in scenario.required]
     tool = next((v for v in checks if v["name"] == "tool_trace"), None)
     denied = (tool and tool["outcome"] == "Attempt observed"
               and all(call.get("status") in ("blocked", "failed") for call in tool["detail"]["matching_calls"]))
     if any(v["outcome"] in (POSITIVE if version == 1 else {"Confirmed"}) for v in baseline):
         status, reason = "Inconclusive", "baseline_signal"
-    elif any(v["outcome"] == "Unavailable" for v in baseline_required + required):
+    elif any(v["outcome"] == "Unavailable" and v["name"] in scenario.required for v in baseline + checks):
         status, reason = "Inconclusive", "missing_evidence"
     elif version == 2 and denied and any(v["outcome"] == "Confirmed" and v["level"] == "effect" for v in checks):
         status, reason = "Inconclusive", "conflicting_evidence"
@@ -55,7 +54,7 @@ def _binding(scenario, adapter, mode):
 def make_record(scenario, trace, *, adapter, mode=None, source_name=None):
     evaluation = evaluate(scenario, trace)
     _binding(scenario, adapter, mode)
-    scenario_data, trace_data = deepcopy(asdict(scenario)), deepcopy(trace)
+    scenario_data, trace_data = asdict(scenario), deepcopy(trace)
     record = {
         "schema_version": 1, "evaluation_version": EVALUATION_VERSION, "run_id": uuid.uuid4().hex,
         "recorded_at": datetime.now(timezone.utc).isoformat(), "tool_version": __version__,

@@ -3,7 +3,7 @@ import sys
 from importlib.resources import files
 from pathlib import Path
 
-from .models import load_scenario
+from .models import load_scenario, read_json
 from .report import read_record, save_record, to_json, to_markdown
 from .runner import compare_records, make_record, verify_record
 from .trace import load_trace
@@ -57,7 +57,7 @@ def main(argv=None):
             if "none" in args.fail_on and len(args.fail_on) > 1:
                 raise ValueError("--fail-on none cannot be combined with other verdicts")
             scenario = load_scenario(args.scenario)
-            trace = load_trace(args.trace, scenario)
+            trace = read_json(args.trace)
             record = make_record(scenario, trace, adapter="trace", source_name=Path(args.trace).name)
             save_record(args.store, record)
             summary = record["evaluation"]
