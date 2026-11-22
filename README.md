@@ -1,57 +1,55 @@
-<img src="assets/redline-logo.png" alt="redline logo" width="420">
+<p align="center">
+  <img src="assets/redline-logo.png" alt="redline" width="420">
+</p>
 
-redline is a playbook for reviewing an agent's behavior against a policy. Use the skill to plan a manual assessment and write up the evidence. Use the optional CLI to evaluate recorded tool calls, state changes, and platform markers.
+redline helps review an AI agent's behavior against a policy. Use the skill to plan a manual assessment and review observations, or the offline CLI to evaluate captured tool calls, state changes, and platform markers.
 
-## Use the skill
+## Install
 
-In Codex chat, install the [playbook](redline/SKILL.md) and invoke it:
+For the skill, run these in Codex chat:
 
 ```text
 $skill-installer Install the skill at https://github.com/delriscotechnologies/redline/tree/main/redline
-$redline Help me review a manual assessment. Start with the task, policy, and available evidence.
+$redline Help me review a manual assessment.
 ```
 
-For manual setup in a Codex project, copy or link the `redline/` directory to `.agents/skills/redline/`. You can also give the playbook directly to an evaluator. The skill works with transcripts and can run without Python.
+You can also copy the `redline/` directory to `.agents/skills/redline/` in a Codex project or give the [playbook](redline/SKILL.md) directly to an evaluator.
 
-Record the legitimate task and the observable result you expect before testing. A baseline shows what happens during normal use. A benign control helps distinguish the influence of the changed input from unrelated changes. Record exact observations and their sources so another reviewer can check the finding.
+The optional CLI requires Git and Python 3.11+. Install it from the checkout with either set of commands.
 
-## Evaluate structured evidence
+**Linux**
 
-With Git and Python 3.11+ installed, run these commands from the directory where you want the checkout. Use `python3` on Linux or replace it with `py -3` on Windows.
-
-```text
+```bash
 git clone https://github.com/delriscotechnologies/redline.git
 cd redline
 python3 -m venv .venv
+.venv/bin/python -m pip install .
+.venv/bin/redline --help
 ```
 
-| Shell | Activate from the checkout |
-| --- | --- |
-| Linux (Bash) | `source .venv/bin/activate` |
-| Windows (Command Prompt) | `.venv\Scripts\activate.bat` |
+**Windows PowerShell**
 
-```text
-python -m pip install .
-redline --help
+```powershell
+git clone https://github.com/delriscotechnologies/redline.git
+cd redline
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install .
+.\.venv\Scripts\redline.exe --help
 ```
 
-Follow the [worked example](assets/docs/reference.md#worked-example) to create a scenario and capture and run the evaluation. Each command has a separate purpose:
+## What it does
 
-| Command | Why use it |
-| --- | --- |
-| `guide` | Read the installed playbook from anywhere. |
-| `validate` | Catch malformed input and mismatched target or prompts before saving a run. |
-| `run` | Apply the evidence rules and keep the inputs and result together for review. |
-| `report` | Verify a saved record and show the evidence behind its verdict. |
-| `compare` | Check whether two evaluations of the same scenario and policy differ. |
+1. The skill helps define the task, policy, baseline and benign control. Run the trials manually and record observations with their sources.
+2. `validate` checks that a scenario and capture match before you evaluate them.
+3. `run` applies the evidence rules and saves the inputs and verdict together.
+4. `report` verifies a saved run and explains its verdict. `compare` checks two runs of the same scenario and policy.
 
-## Scope and limits
+## Output
 
-- The operator controls the assessment. The CLI works offline on supplied JSON and never replays recorded actions.
-- A tool request, reported execution, and observed effect establish different things. Missing or contradictory evidence can make a result inconclusive. The CLI leaves response quality and legitimate-task completion to manual review.
-- Hashes and verdict recomputation check record consistency. They cannot establish authenticity or causation. Review captured content before sharing.
-- Inputs and saved records are capped at 8 MiB each. The evidence store needs hard-link support. See the [technical reference](assets/docs/reference.md) for formats, verdicts, compatibility, and exit codes.
+`run` saves JSON records under `evidence/`. `report` prints Markdown by default and accepts `--format json`. Use `guide` to print the installed skill.
+
+The [worked example](assets/docs/reference.md#worked-example) walks through validation, evaluation, reporting and comparison. The [technical reference](assets/docs/reference.md) documents the formats and verdict rules.
 
 ## License
 
-[MIT](LICENSE)
+redline is released under the [MIT License](LICENSE).
